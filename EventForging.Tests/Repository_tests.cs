@@ -1,5 +1,7 @@
 ﻿// ReSharper disable InconsistentNaming
 
+using EventForging.DependencyInjection;
+using EventForging.InMemory.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -16,6 +18,9 @@ namespace EventForging.Tests
 
             var serviceCollection = new ServiceCollection();
 
+            serviceCollection.AddEventForging();
+            serviceCollection.AddEventForgingInMemory();
+
             var serviceProvider = serviceCollection.BuildServiceProvider();
 
             _repository = serviceProvider.GetRequiredService<IRepository<TestAggregate>>();
@@ -29,7 +34,7 @@ namespace EventForging.Tests
             var timestamp = DateTime.UtcNow;
 
             var a = new TestAggregate();
-            a.ChangeNumber(number);
+            a.RefreshNumber(number);
             a.ChangeText(text);
             a.ChangeTimestamp(timestamp);
 

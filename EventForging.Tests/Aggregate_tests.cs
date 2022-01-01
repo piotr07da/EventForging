@@ -12,7 +12,7 @@ public class Aggregate_tests
         var timestamp = DateTime.UtcNow;
 
         var a = new TestAggregate();
-        a.ChangeNumber(number);
+        a.RefreshNumber(number);
         a.ChangeText(text);
         a.ChangeTimestamp(timestamp);
 

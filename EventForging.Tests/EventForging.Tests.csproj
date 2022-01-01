@@ -19,6 +19,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\EventForging.InMemory\EventForging.InMemory.csproj" />
 		<ProjectReference Include="..\EventForging\EventForging.csproj" />
 	</ItemGroup>
 
