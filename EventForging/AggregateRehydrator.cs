@@ -16,6 +16,8 @@ namespace EventForging
 
             var appliedEventCount = eventApplier.ApplyEvents(events, false);
 
+            aggregate.ConfigureAggregateMetadata(md => md.ReadVersion = appliedEventCount - 1);
+
             return appliedEventCount > 0;
         }
     }

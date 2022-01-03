@@ -1,17 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace EventForging
 {
-    public interface IEventDatabase
-    {
-        Task<IEnumerable<object>> ReadAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default);
-        Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default);
-    }
-
     public class Repository<TAggregate> : IRepository<TAggregate>
         where TAggregate : class, IEventForged, new()
     {
@@ -34,7 +27,7 @@ namespace EventForging
         public async Task<TAggregate> GetAsync(string aggregateId)
         {
             var events = await _database.ReadAsync<TAggregate>(aggregateId);
-            var aggregate = new TAggregate();
+            var aggregate = AggregateProxyGenerator.Create<TAggregate>();
             var rehydrated = _aggregateRehydrator.TryRehydrate(aggregate, events);
             if (!rehydrated)
             {
@@ -51,8 +44,11 @@ namespace EventForging
 
         public async Task SaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
         {
+            var aggregateMetadata = aggregate.GetAggregateMetadata();
+            var lastReadAggregateVersion = aggregateMetadata.ReadVersion;
             var newEvents = aggregate.Events.Get().ToArray();
-            await _database.WriteAsync<TAggregate>(aggregateId, newEvents, expectedVersion, conversationId, initiatorId, customProperties);
+            customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
+            await _database.WriteAsync<TAggregate>(aggregateId, newEvents, lastReadAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties);
             aggregate.Events.Clear();
         }
     }
