@@ -10,8 +10,12 @@ namespace EventForging
         public static IReadOnlyDictionary<Type, EventApplierAction> Extract(object extractionSource)
         {
             var extractionSourceType = extractionSource.GetType();
+            if (extractionSourceType.Assembly.FullName.StartsWith(AggregateProxyGenerator.AggregateProxiesAssemblyName))
+            {
+                extractionSourceType = extractionSourceType.BaseType;
+            }
 
-            var applyMethods = extractionSourceType
+            var applyMethods = extractionSourceType!
                 .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                 .Where(m => m.Name == "Apply");
 
