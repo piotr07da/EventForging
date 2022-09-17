@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<Version>1.0.0-alpha</Version>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\EventForging\EventForging.csproj" />
+	</ItemGroup>
+
+</Project>

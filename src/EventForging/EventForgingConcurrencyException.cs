@@ -2,7 +2,7 @@
 
 namespace EventForging
 {
-    public class EventForgingConcurrencyException : Exception
+    public class EventForgingConcurrencyException : EventForgingException
     {
         public EventForgingConcurrencyException(string message, Exception innerException)
             : base(message, innerException)

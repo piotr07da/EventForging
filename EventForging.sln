@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.2.32516.85
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging", "EventForging\EventForging.csproj", "{BBEF7B9E-2EE3-4C71-B446-E4ADD1992F47}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging", "src\EventForging\EventForging.csproj", "{BBEF7B9E-2EE3-4C71-B446-E4ADD1992F47}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventForging.Tests", "EventForging.Tests\EventForging.Tests.csproj", "{6EF712E0-A34B-4B09-A8EB-19C16D60FC98}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.Tests", "tests\EventForging.Tests\EventForging.Tests.csproj", "{6EF712E0-A34B-4B09-A8EB-19C16D60FC98}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventForging.InMemory", "EventForging.InMemory\EventForging.InMemory.csproj", "{A433246B-3DE7-47B4-BBB3-FB8F54231543}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.InMemory", "src\EventForging.InMemory\EventForging.InMemory.csproj", "{A433246B-3DE7-47B4-BBB3-FB8F54231543}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
