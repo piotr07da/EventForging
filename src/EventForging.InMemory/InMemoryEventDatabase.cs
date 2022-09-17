@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EventForging.InMemory
 {
-    public class InMemoryEventDatabase : IEventDatabase
+    public sealed class InMemoryEventDatabase : IEventDatabase
     {
         private readonly ConcurrentDictionary<string, object[]> _streams = new();
 

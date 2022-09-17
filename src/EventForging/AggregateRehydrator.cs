@@ -2,7 +2,7 @@
 
 namespace EventForging
 {
-    public class AggregateRehydrator : IAggregateRehydrator
+    public sealed class AggregateRehydrator : IAggregateRehydrator
     {
         public bool TryRehydrate<TAggregate>(TAggregate aggregate, IEnumerable<object> events)
             where TAggregate : IEventForged

@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace EventForging;
 
-public class Events
+public sealed class Events
 {
     private readonly IList<object> _events = new List<object>();
     private readonly EventApplier _eventApplier;

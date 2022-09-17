@@ -1,6 +1,6 @@
 ﻿namespace EventForging
 {
-    public class AggregateMetadata
+    public sealed class AggregateMetadata
     {
         public const string FieldName = "__Neuca_ES_Metadata";
 

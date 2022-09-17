@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace EventForging
 {
-    public class Repository<TAggregate> : IRepository<TAggregate>
+    public sealed class Repository<TAggregate> : IRepository<TAggregate>
         where TAggregate : class, IEventForged, new()
     {
         private readonly IAggregateRehydrator _aggregateRehydrator;

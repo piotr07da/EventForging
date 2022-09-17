@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace EventForging
 {
-    public class EventApplier
+    public sealed class EventApplier
     {
         private object _target;
         private IReadOnlyDictionary<Type, EventApplierAction> _eventApplierActions;

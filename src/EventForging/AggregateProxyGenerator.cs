@@ -5,7 +5,7 @@ using System.Reflection.Emit;
 
 namespace EventForging;
 
-public class AggregateProxyGenerator
+public sealed class AggregateProxyGenerator
 {
     public const string AggregateProxiesAssemblyName = "EventForging.AggregateProxies";
 
