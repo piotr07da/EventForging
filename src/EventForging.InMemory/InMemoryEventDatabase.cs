@@ -5,35 +5,37 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace EventForging.InMemory
+namespace EventForging.InMemory;
+
+internal sealed class InMemoryEventDatabase : IEventDatabase
 {
-    public sealed class InMemoryEventDatabase : IEventDatabase
+    private readonly ConcurrentDictionary<string, object[]> _streams = new();
+
+    public Task ReadAsync<TAggregate>(string aggregateId, IEventDatabaseReadCallback callback, CancellationToken cancellationToken = default)
     {
-        private readonly ConcurrentDictionary<string, object[]> _streams = new();
+        callback.OnBegin();
+        _streams.TryGetValue(aggregateId, out var events);
+        events = events ?? Array.Empty<object>();
+        callback.OnRead(events);
+        callback.OnEnd();
+        return Task.CompletedTask;
+    }
 
-        public Task<IEnumerable<object>> ReadAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default)
+    public Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    {
+        _streams.TryGetValue(aggregateId, out var currentEvents);
+        currentEvents ??= Array.Empty<object>();
+
+        var actualVersion = currentEvents.Length - 1;
+
+        if ((lastReadAggregateVersion.AggregateDoesNotExist && currentEvents.Length > 0) || (lastReadAggregateVersion.AggregateExists && lastReadAggregateVersion.Value != actualVersion))
         {
-            _streams.TryGetValue(aggregateId, out var events);
-            events = events ?? Array.Empty<object>();
-            return Task.FromResult(events.AsEnumerable());
+            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, lastReadAggregateVersion, actualVersion);
         }
 
-        public Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
-        {
-            _streams.TryGetValue(aggregateId, out var currentEvents);
-            currentEvents ??= Array.Empty<object>();
-
-            var actualVersion = currentEvents.Length - 1;
-
-            if ((lastReadAggregateVersion.AggregateDoesNotExist && currentEvents.Length > 0) || (lastReadAggregateVersion.AggregateExists && lastReadAggregateVersion.Value != actualVersion))
-            {
-                throw new EventForgingUnexpectedVersionException(expectedVersion, lastReadAggregateVersion, actualVersion);
-            }
-
-            var allEvents = currentEvents.ToList();
-            allEvents.AddRange(events);
-            _streams[aggregateId] = allEvents.ToArray();
-            return Task.CompletedTask;
-        }
+        var allEvents = currentEvents.ToList();
+        allEvents.AddRange(events);
+        _streams[aggregateId] = allEvents.ToArray();
+        return Task.CompletedTask;
     }
 }

@@ -1,53 +1,52 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace EventForging
+namespace EventForging;
+
+internal sealed class EventApplier
 {
-    public sealed class EventApplier
+    private object _target;
+    private IReadOnlyDictionary<Type, EventApplierAction> _eventApplierActions;
+
+    public int ApplyEvents(IEnumerable<object> events, bool throwIfApplyActionNotFound)
     {
-        private object _target;
-        private IReadOnlyDictionary<Type, EventApplierAction> _eventApplierActions;
-
-        public int ApplyEvents(IEnumerable<object> events, bool throwIfApplyActionNotFound)
+        var count = 0;
+        foreach (var evt in events)
         {
-            var count = 0;
-            foreach (var evt in events)
+            ApplyEvent(evt, throwIfApplyActionNotFound);
+            ++count;
+        }
+
+        return count;
+    }
+
+    public void ApplyEvent(object @event, bool throwIfApplyActionNotFound)
+    {
+        var eventType = @event.GetType();
+
+        if (!_eventApplierActions.TryGetValue(eventType, out var eventApplier))
+        {
+            if (throwIfApplyActionNotFound)
             {
-                ApplyEvent(evt, throwIfApplyActionNotFound);
-                ++count;
+                throw new InvalidOperationException($"Aggregate of type [{_target.GetType().Name}] has no [void Apply({eventType.Name} e)] method. Add and fill body of following method:{Environment.NewLine}{Environment.NewLine}private void Apply({eventType.Name} e){Environment.NewLine}{{{Environment.NewLine}}}{Environment.NewLine}");
             }
 
-            return count;
+            return;
         }
 
-        public void ApplyEvent(object @event, bool throwIfApplyActionNotFound)
-        {
-            var eventType = @event.GetType();
+        eventApplier(@event);
+    }
 
-            if (!_eventApplierActions.TryGetValue(eventType, out var eventApplier))
-            {
-                if (throwIfApplyActionNotFound)
-                {
-                    throw new InvalidOperationException($"Target event applier [{_target.GetType().Name}] has no [void Apply({eventType.Name} e)] method. Add and fill body of following method:{Environment.NewLine}{Environment.NewLine}private void Apply({eventType.Name} e){Environment.NewLine}{{{Environment.NewLine}}}{Environment.NewLine}");
-                }
+    private void Register(object target)
+    {
+        _target = target ?? throw new ArgumentNullException(nameof(target));
+        _eventApplierActions = EventApplierActionsExtractor.Extract(_target);
+    }
 
-                return;
-            }
-
-            eventApplier(@event);
-        }
-
-        private void Register(object target)
-        {
-            _target = target ?? throw new ArgumentNullException(nameof(target));
-            _eventApplierActions = EventApplierActionsExtractor.Extract(_target);
-        }
-
-        public static EventApplier CreateFor(object target)
-        {
-            var aea = new EventApplier();
-            aea.Register(target);
-            return aea;
-        }
+    public static EventApplier CreateFor(object target)
+    {
+        var aea = new EventApplier();
+        aea.Register(target);
+        return aea;
     }
 }

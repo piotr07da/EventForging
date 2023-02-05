@@ -2,21 +2,24 @@
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EventForging.DependencyInjection
+namespace EventForging.DependencyInjection;
+
+public static class ServiceCollectionExtensions
 {
-    public static class ServiceCollectionExtensions
+    public static IServiceCollection AddEventForging(this IServiceCollection services, Action<IEventForgingRegistrationConfiguration> configurator)
     {
-        public static IServiceCollection AddEventForging(this IServiceCollection collection)
+        if (services.Any(d => d.ServiceType == typeof(IEventForgingConfiguration)))
         {
-            if (collection.Any(d => d.ServiceType == typeof(IAggregateRehydrator)))
-            {
-                throw new Exception($"{nameof(AddEventForging)}() has already been called but may only be called once per container.");
-            }
-
-            collection.AddTransient(typeof(IAggregateRehydrator), typeof(AggregateRehydrator));
-            collection.AddTransient(typeof(IRepository<>), typeof(Repository<>));
-
-            return collection;
+            throw new EventForgingConfigurationException("EventForging has already been added.");
         }
+
+        var configuration = new EventForgingConfiguration();
+        var registrationConfiguration = new EventForgingRegistrationConfiguration(services, configuration);
+        configurator(registrationConfiguration);
+
+        services.AddSingleton(typeof(IEventForgingConfiguration), configuration);
+        services.AddTransient(typeof(IRepository<>), typeof(Repository<>));
+
+        return services;
     }
 }

@@ -10,8 +10,13 @@ public static class ServiceProviderFactory
     {
         var serviceCollection = new ServiceCollection();
 
-        serviceCollection.AddEventForging();
-        serviceCollection.AddEventForgingInMemory();
+        serviceCollection.AddEventForging(c =>
+        {
+            c.UseInMemory(imConfigurator =>
+            {
+                imConfigurator.SerializationEnabled = true;
+            });
+        });
 
         var serviceProvider = serviceCollection.BuildServiceProvider();
 

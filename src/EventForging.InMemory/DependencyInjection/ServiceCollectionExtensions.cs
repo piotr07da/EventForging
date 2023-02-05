@@ -1,21 +1,34 @@
 ﻿using System;
 using System.Linq;
+using EventForging.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EventForging.InMemory.DependencyInjection
+namespace EventForging.InMemory.DependencyInjection;
+
+public static class ServiceCollectionExtensions
 {
-    public static class ServiceCollectionExtensions
+    public static IEventForgingRegistrationConfiguration UseInMemory(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IEventForgingInMemoryConfiguration> configurator = null)
     {
-        public static IServiceCollection AddEventForgingInMemory(this IServiceCollection collection)
+        var services = registrationConfiguration.Services;
+
+        var eventDatabaseServiceDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEventDatabase));
+        if (eventDatabaseServiceDescriptor != null)
         {
-            if (collection.Any(d => d.ImplementationType == typeof(InMemoryEventDatabase)))
-            {
-                throw new Exception($"{nameof(AddEventForgingInMemory)}() has already been called and may only be called once per container.");
-            }
-
-            collection.AddTransient<IEventDatabase, InMemoryEventDatabase>();
-
-            return collection;
+            throw new EventForgingConfigurationException($"Another type of event database has already been used: {eventDatabaseServiceDescriptor.ImplementationType?.Name}.");
         }
+
+        configurator ??= ConfigureDefault;
+        var configuration = new EventForgingInMemoryConfiguration();
+        configurator(configuration);
+        services.AddSingleton<IEventForgingInMemoryConfiguration>(configuration);
+
+        services.AddTransient<IEventDatabase, InMemoryEventDatabase>();
+
+        return registrationConfiguration;
+    }
+
+    private static void ConfigureDefault(IEventForgingInMemoryConfiguration configuration)
+    {
+        configuration.SerializationEnabled = false;
     }
 }

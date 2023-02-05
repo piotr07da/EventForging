@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<Version>1.0.1-alpha</Version>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="System.Text.Json" Version="6.0.6" />
+	</ItemGroup>
+
+</Project>

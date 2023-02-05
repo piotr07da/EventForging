@@ -1,4 +1,3 @@
-﻿namespace EventForging
-{
-    public delegate void EventApplierAction(object @event);
-}
+﻿namespace EventForging;
+
+internal delegate void EventApplierAction(object @event);
