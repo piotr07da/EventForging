@@ -4,7 +4,7 @@ using EventForging.Serialization;
 
 namespace EventForging.CosmosDb.Serialization;
 
-internal sealed class EventForgingCosmosSerializerOptionsProvider : ISerializerOptionsProvider
+internal sealed class CosmosJsonSerializerOptionsProvider : IJsonSerializerOptionsProvider
 {
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {

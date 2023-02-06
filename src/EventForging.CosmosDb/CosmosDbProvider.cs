@@ -16,9 +16,9 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
     private static readonly IDictionary<Type, Container> _aggregateContainers = new Dictionary<Type, Container>();
     private readonly IEventForgingCosmosDbConfiguration _configuration;
     private readonly IEventSerializer _eventSerializer;
-    private readonly ISerializerOptionsProvider _serializerOptionsProvider;
+    private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
 
-    public CosmosDbProvider(IEventForgingCosmosDbConfiguration configuration, IEventSerializer eventSerializer, ISerializerOptionsProvider serializerOptionsProvider)
+    public CosmosDbProvider(IEventForgingCosmosDbConfiguration configuration, IEventSerializer eventSerializer, IJsonSerializerOptionsProvider serializerOptionsProvider)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
@@ -65,6 +65,9 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
     public async Task DisposeAsync()
     {
         _client?.Dispose();
+        _databases.Clear();
+        _containers.Clear();
+        _aggregateContainers.Clear();
         await Task.CompletedTask;
     }
 

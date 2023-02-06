@@ -2,7 +2,7 @@
 
 namespace EventForging.Serialization;
 
-public interface ISerializerOptionsProvider
+public interface IJsonSerializerOptionsProvider
 {
     JsonSerializerOptions Get();
 }

@@ -11,9 +11,9 @@ namespace EventForging.CosmosDb.Serialization;
 internal sealed class EventForgingCosmosSerializer : CosmosSerializer
 {
     private readonly IEventSerializer _eventSerializer;
-    private readonly ISerializerOptionsProvider _serializerOptionsProvider;
+    private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
 
-    public EventForgingCosmosSerializer(IEventSerializer eventSerializer, ISerializerOptionsProvider serializerOptionsProvider)
+    public EventForgingCosmosSerializer(IEventSerializer eventSerializer, IJsonSerializerOptionsProvider serializerOptionsProvider)
     {
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));

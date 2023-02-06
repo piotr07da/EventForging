@@ -4,12 +4,12 @@ using System.Text.Json;
 
 namespace EventForging.Serialization;
 
-public class EventSerializer : IEventSerializer
+internal sealed class JsonEventSerializer : IEventSerializer
 {
     private readonly IEventForgingSerializationConfiguration _serializationConfiguration;
-    private readonly ISerializerOptionsProvider _serializerOptionsProvider;
+    private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
 
-    public EventSerializer(IEventForgingSerializationConfiguration serializationConfiguration, ISerializerOptionsProvider serializerOptionsProvider)
+    public JsonEventSerializer(IEventForgingSerializationConfiguration serializationConfiguration, IJsonSerializerOptionsProvider serializerOptionsProvider)
     {
         _serializationConfiguration = serializationConfiguration ?? throw new ArgumentNullException(nameof(serializationConfiguration));
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));

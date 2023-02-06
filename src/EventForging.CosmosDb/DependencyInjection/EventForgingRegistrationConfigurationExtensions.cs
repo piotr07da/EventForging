@@ -24,7 +24,7 @@ public static class EventForgingRegistrationConfigurationExtensions
         ValidateConfiguration(configuration);
         services.AddSingleton<IEventForgingCosmosDbConfiguration>(configuration);
         services.AddSingleton<ICosmosDbProvider, CosmosDbProvider>();
-        services.AddSingleton<ISerializerOptionsProvider, EventForgingCosmosSerializerOptionsProvider>();
+        services.AddSingleton<IJsonSerializerOptionsProvider, CosmosJsonSerializerOptionsProvider>();
         services.AddSingleton<IStreamNameFactory, DefaultStreamNameFactory>();
 
         services.AddTransient<IEventDatabase, CosmosDbEventDatabase>();
