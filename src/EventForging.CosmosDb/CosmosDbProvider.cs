@@ -10,16 +10,18 @@ namespace EventForging.CosmosDb;
 
 internal sealed class CosmosDbProvider : ICosmosDbProvider
 {
-    private static CosmosClient _client;
+    private static CosmosClient? _client;
     private static readonly IDictionary<string, Database> _databases = new Dictionary<string, Database>();
     private static readonly IDictionary<string, Container> _containers = new Dictionary<string, Container>();
     private static readonly IDictionary<Type, Container> _aggregateContainers = new Dictionary<Type, Container>();
     private readonly IEventForgingCosmosDbConfiguration _configuration;
+    private readonly IEventSerializer _eventSerializer;
     private readonly ISerializerOptionsProvider _serializerOptionsProvider;
 
-    public CosmosDbProvider(IEventForgingCosmosDbConfiguration configuration, ISerializerOptionsProvider serializerOptionsProvider)
+    public CosmosDbProvider(IEventForgingCosmosDbConfiguration configuration, IEventSerializer eventSerializer, ISerializerOptionsProvider serializerOptionsProvider)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
     }
 
@@ -28,7 +30,7 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         var clientOptions = new CosmosClientOptions
         {
             ConnectionMode = ConnectionMode.Direct,
-            Serializer = new EventForgingCosmosSerializer(_serializerOptionsProvider),
+            Serializer = new EventForgingCosmosSerializer(_eventSerializer, _serializerOptionsProvider),
         };
 
         if (_configuration.IgnoreServerCertificateValidation)
@@ -62,7 +64,7 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
 
     public async Task DisposeAsync()
     {
-        _client.Dispose();
+        _client?.Dispose();
         await Task.CompletedTask;
     }
 

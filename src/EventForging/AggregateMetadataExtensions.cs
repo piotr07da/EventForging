@@ -34,7 +34,7 @@ internal static class AggregateMetadataExtensions
         return f ?? throw new InvalidOperationException($"Aggregate metadata field {AggregateMetadata.FieldName} doesn't exist.");
     }
 
-    private static FieldInfo TryGetMetadataField(object aggregate)
+    private static FieldInfo? TryGetMetadataField(object aggregate)
     {
         var t = aggregate.GetType();
         var f = t.GetField(AggregateMetadata.FieldName, BindingFlags.NonPublic | BindingFlags.Instance);

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 
@@ -42,7 +43,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         {
             var page = await iterator.ReadNextAsync(cancellationToken);
 
-            var events = page.Select(p => p.Data).ToArray();
+            var events = page.Select(ed => ed.Data).ToArray();
             callback.OnRead(events);
         }
 

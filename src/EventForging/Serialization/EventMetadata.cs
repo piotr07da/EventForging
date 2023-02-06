@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace EventForging.CosmosDb;
+namespace EventForging.Serialization;
 
 public class EventMetadata
 {
-    public EventMetadata(Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties = null)
+    public EventMetadata(Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties = null)
     {
         ConversationId = conversationId;
         InitiatorId = initiatorId;

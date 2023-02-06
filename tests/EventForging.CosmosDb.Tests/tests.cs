@@ -3,6 +3,7 @@
 using System.Reflection;
 using EventForging.CosmosDb.DependencyInjection;
 using EventForging.DependencyInjection;
+using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Xunit;
@@ -44,6 +45,10 @@ public class tests
         var services = new ServiceCollection();
         services.AddEventForging(r =>
         {
+            r.ConfigureSerialization(sc =>
+            {
+                sc.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(Assembly.GetExecutingAssembly()));
+            });
             r.UseCosmosDb(cc =>
             {
                 cc.IgnoreServerCertificateValidation = true;

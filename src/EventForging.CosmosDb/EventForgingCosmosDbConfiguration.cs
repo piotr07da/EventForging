@@ -9,7 +9,7 @@ internal sealed class EventForgingCosmosDbConfiguration : IEventForgingCosmosDbC
 {
     private readonly Dictionary<Type, AggregateLocationConfiguration> _aggregateLocations = new();
 
-    public string ConnectionString { get; set; }
+    public string? ConnectionString { get; set; }
     public IReadOnlyDictionary<Type, AggregateLocationConfiguration> AggregateLocations => _aggregateLocations;
     public bool IgnoreServerCertificateValidation { get; set; }
 
@@ -35,7 +35,7 @@ internal sealed class EventForgingCosmosDbConfiguration : IEventForgingCosmosDbC
         }
     }
 
-    public void AddAggregatesLocations(string databaseName, string containerName, Assembly aggregatesAssembly, Func<Type, bool> aggregateTypeFilter = default)
+    public void AddAggregatesLocations(string databaseName, string containerName, Assembly aggregatesAssembly, Func<Type, bool>? aggregateTypeFilter = default)
     {
         var locationConfiguration = new AggregateLocationConfiguration(databaseName, containerName);
 
