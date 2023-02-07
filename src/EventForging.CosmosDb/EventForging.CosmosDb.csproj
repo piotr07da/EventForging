@@ -7,9 +7,9 @@
 		<Version>1.0.1-alpha</Version>
 		<Authors>piotr07da</Authors>
 		<Company>Piotr Bejger</Company>
-		<Description>EventForging is a free, open-source .NET framework for event sourced applications.</Description>
+		<Description>EventForging.CosmosDb is CosmosDb implementation of EventForging - free, open-source .NET framework for event sourced applications.</Description>
 		<RepositoryUrl>https://github.com/piotr07da/EventForging</RepositoryUrl>
-		<PackageTags>event; events; event sourcing; event driven; event forging; event store;</PackageTags>
+		<PackageTags>event; events; event sourcing; event driven; event forging; event store; cosmosdb;</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	</PropertyGroup>
 
@@ -18,14 +18,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Azure.Cosmos" Version="3.30.1" />
+		<PackageReference Include="Microsoft.Azure.Cosmos" Version="3.32.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="7.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
-		<PackageReference Include="System.Text.Json" Version="6.0.6" />
+		<PackageReference Include="System.Text.Json" Version="7.0.1" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\EventForging.Serialization\EventForging.Serialization.csproj" />
 		<ProjectReference Include="..\EventForging\EventForging.csproj" />
 	</ItemGroup>
 

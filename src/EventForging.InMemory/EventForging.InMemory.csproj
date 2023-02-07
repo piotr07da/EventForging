@@ -1,7 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<Copyright>Piotr Bejger</Copyright>
+		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
 		<Version>1.0.1-alpha</Version>
+		<Authors>piotr07da</Authors>
+		<Company>Piotr Bejger</Company>
+		<Description>EventForging.InMemory is InMemory implementation of EventForging - free, open-source .NET framework for event sourced applications.</Description>
+		<RepositoryUrl>https://github.com/piotr07da/EventForging</RepositoryUrl>
+		<PackageTags>event; events; event sourcing; event driven; event forging; event store;</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -16,8 +16,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.Serialization", "src\EventForging.Serialization\EventForging.Serialization.csproj", "{4699355B-3972-4B16-BBDE-D241350978DD}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.EventStore", "src\EventForging.EventStore\EventForging.EventStore.csproj", "{1B7500A9-F721-45A1-A254-6FC93AA7290A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.CosmosDb.Tests", "tests\EventForging.CosmosDb.Tests\EventForging.CosmosDb.Tests.csproj", "{D715EC04-E867-4A22-95E4-C81BBE5A7799}"
@@ -44,10 +42,6 @@ Global
 		{3D30BD93-BD60-402B-9884-61663CBA5B48}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3D30BD93-BD60-402B-9884-61663CBA5B48}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3D30BD93-BD60-402B-9884-61663CBA5B48}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4699355B-3972-4B16-BBDE-D241350978DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4699355B-3972-4B16-BBDE-D241350978DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4699355B-3972-4B16-BBDE-D241350978DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4699355B-3972-4B16-BBDE-D241350978DD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1B7500A9-F721-45A1-A254-6FC93AA7290A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1B7500A9-F721-45A1-A254-6FC93AA7290A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1B7500A9-F721-45A1-A254-6FC93AA7290A}.Release|Any CPU.ActiveCfg = Release|Any CPU

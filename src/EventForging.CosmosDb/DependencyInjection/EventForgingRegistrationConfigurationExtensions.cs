@@ -13,10 +13,10 @@ public static class EventForgingRegistrationConfigurationExtensions
     {
         var services = registrationConfiguration.Services;
 
-        var eventDatabaseServiceDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEventForgingCosmosDbConfiguration));
-        if (eventDatabaseServiceDescriptor != null)
+        var cfgDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEventForgingCosmosDbConfiguration));
+        if (cfgDescriptor != null)
         {
-            throw new EventForgingConfigurationException($"Another type of event database has already been used: {eventDatabaseServiceDescriptor.ImplementationType?.Name}.");
+            throw new EventForgingConfigurationException("CosmosDb already used.");
         }
 
         var configuration = new EventForgingCosmosDbConfiguration();
