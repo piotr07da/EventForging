@@ -127,6 +127,59 @@ public class when_ConfigureSerialization_and_UseCosmosDb : IAsyncLifetime
     }
 
     [Fact]
+    public async Task and_new_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_are_written_to_the_database_only_once()
+    {
+        var repository = ResolveRepository();
+        var orderId = Guid.NewGuid();
+
+        var orderToSave = Order.Raise(orderId);
+        var initiatorId = Guid.NewGuid();
+        var saveTasks = new List<Task>();
+        var saveIds = new List<string>();
+        for (var i = 0; i < 100; ++i)
+        {
+            var saveId = Guid.NewGuid().ToString();
+            saveIds.Add(saveId);
+            var saveTask = repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", saveId }, });
+            saveTasks.Add(saveTask);
+        }
+
+        await Task.WhenAll(saveTasks);
+
+        var documents = await GetEventDocumentsAsync();
+        Assert.Single(documents);
+        var document = documents[0];
+        Assert.Contains(document.Metadata!.CustomProperties["save"], saveIds);
+    }
+
+    [Fact]
+    public async Task and_existing_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_are_written_to_the_database_only_once()
+    {
+        var repository = ResolveRepository();
+        var orderId = Guid.NewGuid();
+
+        var existingOrder = await prepare_existing_aggregate(orderId);
+        existingOrder.Complete();
+        var initiatorId = Guid.NewGuid();
+        var saveTasks = new List<Task>();
+        var saveIds = new List<string>();
+        for (var i = 0; i < 100; ++i)
+        {
+            var saveId = Guid.NewGuid().ToString();
+            saveIds.Add(saveId);
+            var saveTask = repository.SaveAsync(orderId, existingOrder, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", saveId }, });
+            saveTasks.Add(saveTask);
+        }
+
+        await Task.WhenAll(saveTasks);
+
+        var documents = await GetEventDocumentsAsync();
+        Assert.Equal(2, documents.Length);
+        var document = documents[1];
+        Assert.Contains(document.Metadata!.CustomProperties["save"], saveIds);
+    }
+
+    [Fact]
     public async Task and_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
     {
         var repository = ResolveRepository();
