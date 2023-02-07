@@ -58,6 +58,5 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
         customProperties ??= new Dictionary<string, string>();
         await _database.WriteAsync<TAggregate>(aggregateId, newEvents, lastReadAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties).ConfigureAwait(false);
-        aggregate.Events.Clear();
     }
 }

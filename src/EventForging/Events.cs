@@ -22,8 +22,6 @@ public sealed class Events
         _events.Add(@event);
     }
 
-    public void Clear() => _events.Clear();
-
     public static Events CreateFor(object owner)
     {
         return new Events(EventApplier.CreateFor(owner));

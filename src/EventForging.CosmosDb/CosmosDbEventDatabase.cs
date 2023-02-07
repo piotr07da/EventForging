@@ -78,6 +78,13 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
         else
         {
+            var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(aggregateId, initiatorId, cancellationToken);
+            if (alreadyWritten)
+            {
+                LogIdempotencyWarning(aggregateId, initiatorId);
+                return;
+            }
+
             if (expectedVersion.IsNone)
             {
                 throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, null);
@@ -93,12 +100,6 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             if (expectedVersion.IsAny && headerItem.Version != lastReadAggregateVersion)
             {
                 throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, headerItem.Version);
-            }
-
-            var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(aggregateId, initiatorId, cancellationToken);
-            if (alreadyWritten)
-            {
-                LogIdempotencyWarning(aggregateId, initiatorId);
             }
         }
 
@@ -136,7 +137,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                 return;
             }
 
-            headerItem = await ReadHeaderAsync<HeaderDocument>(streamId, cancellationToken);
+            headerItem = await ReadHeaderAsync<TAggregate>(streamId, cancellationToken);
 
             throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, headerItem.Version);
         }

@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Text.Json.Serialization;
+using EventForging.Serialization;
 
 namespace EventForging.CosmosDb;
 
-public class EventDocument : IDocument
+internal sealed class EventDocument : IDocument
 {
     public EventDocument()
     {
     }
 
-    public EventDocument(string streamId, int eventNumber, object data, object metadata)
+    public EventDocument(string streamId, int eventNumber, object data, EventMetadata metadata)
     {
         Id = $"{eventNumber}@{streamId}";
         StreamId = streamId;
@@ -21,14 +22,14 @@ public class EventDocument : IDocument
         Metadata = metadata;
     }
 
-    public string Id { get; set; }
+    public string? Id { get; set; }
 
-    public string StreamId { get; set; }
+    public string? StreamId { get; set; }
 
     public DocumentType DocumentType { get; set; }
 
     [JsonPropertyName("_etag")]
-    public string ETag { get; set; }
+    public string? ETag { get; set; }
 
     [JsonPropertyName("_ts")]
     public long Timestamp { get; set; }
@@ -37,11 +38,11 @@ public class EventDocument : IDocument
 
     public int EventNumber { get; set; }
 
-    public string EventType { get; set; }
+    public string? EventType { get; set; }
 
-    public object Data { get; set; }
+    public object? Data { get; set; }
 
-    public object Metadata { get; set; }
+    public EventMetadata? Metadata { get; set; }
 
     public EventDocument Clone()
     {

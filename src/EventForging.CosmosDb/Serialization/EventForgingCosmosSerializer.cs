@@ -43,12 +43,15 @@ internal sealed class EventForgingCosmosSerializer : CosmosSerializer
         {
             if (ed.DocumentType == DocumentType.Event)
             {
-                var eventDataAsString = ed.Data.ToString();
-                var eventMetadataAsString = ed.Metadata.ToString();
+                if (ed.Data is null || ed.EventType is null)
+                {
+                    throw new EventForgingException($"Data and type of event retrieved from the database cannot null. StreamId is '{ed.StreamId}', Id is {ed.Id}.");
+                }
 
-                var (eventData, eventMetadata) = _eventSerializer.DeserializeFromString(ed.EventType, eventDataAsString, eventMetadataAsString);
+                var eventDataAsString = ed.Data.ToString();
+
+                var eventData = _eventSerializer.DeserializeFromString(ed.EventType, eventDataAsString);
                 ed.Data = eventData;
-                ed.Metadata = eventMetadata;
             }
         }
 
@@ -58,18 +61,20 @@ internal sealed class EventForgingCosmosSerializer : CosmosSerializer
     public override Stream ToStream<T>(T input)
     {
         const string dataReplaceTag = "REPLACE_WITH_DATA_SERIALIZED_USING_EVENT_FORGING_EVENTS_SERIALIZER";
-        const string metadataReplaceTag = "REPLACE_WITH_METADATA_SERIALIZED_USING_EVENT_FORGING_EVENTS_SERIALIZER";
 
         var replaceNeeded = false;
         var serializedEventData = null as string;
-        var serializedEventMetadata = null as string;
         if (input is EventDocument ed)
         {
-            (var eventTypeName, serializedEventData, serializedEventMetadata) = _eventSerializer.SerializeToString(ed.Data, (ed.Metadata as EventMetadata)!);
+            if (ed.Data is null)
+            {
+                throw new EventForgingException($"Data of event written to the database cannot null. StreamId is '{ed.StreamId}', Id is {ed.Id}.");
+            }
+
+            serializedEventData = _eventSerializer.SerializeToString(ed.Data, out var eventTypeName);
 
             ed = ed.Clone();
             ed.Data = dataReplaceTag;
-            ed.Metadata = metadataReplaceTag;
             ed.EventType = eventTypeName;
             input = (T)(object)ed;
 
@@ -81,7 +86,6 @@ internal sealed class EventForgingCosmosSerializer : CosmosSerializer
         if (replaceNeeded)
         {
             json = json.Replace($"\"{dataReplaceTag}\"", serializedEventData);
-            json = json.Replace($"\"{metadataReplaceTag}\"", serializedEventMetadata);
         }
 
         return new MemoryStream(Encoding.UTF8.GetBytes(json));

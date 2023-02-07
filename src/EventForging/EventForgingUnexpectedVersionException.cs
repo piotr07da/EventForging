@@ -38,7 +38,7 @@ public class EventForgingUnexpectedVersionException : EventForgingConcurrencyExc
         messageBuilder.Append($" Aggregate version while it was read from the repository was {readVersion}.");
         if (actualVersion.HasValue)
         {
-            messageBuilder.Append($" Actual version is {actualVersion.Value}");
+            messageBuilder.Append($" Actual version is {actualVersion.Value}.");
         }
 
         return messageBuilder.ToString();

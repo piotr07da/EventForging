@@ -17,37 +17,31 @@ internal sealed class JsonEventSerializer : IEventSerializer
 
     private JsonSerializerOptions SerializerOptions => _serializerOptionsProvider.Get();
 
-    public (string eventTypeName, byte[] serializedEventData, byte[] serializedEventMetadata) SerializeToBytes(object eventData, EventMetadata eventMetadata)
+    public byte[] SerializeToBytes(object eventData, out string eventName)
     {
         var serializedEventData = SerializeValue(eventData);
-        var serializedEventMetadata = SerializeValue(eventMetadata);
         var bytesSerializedEventData = Encoding.UTF8.GetBytes(serializedEventData);
-        var bytesSerializedEventMetadata = Encoding.UTF8.GetBytes(serializedEventMetadata);
-        var eventName = GetEventName(eventData.GetType());
-        return (eventName, bytesSerializedEventData, bytesSerializedEventMetadata);
+        eventName = GetEventName(eventData.GetType());
+        return bytesSerializedEventData;
     }
 
-    public (string eventTypeName, string serializedEventData, string serializedEventMetadata) SerializeToString(object eventData, EventMetadata eventMetadata)
+    public string SerializeToString(object eventData, out string eventName)
     {
         var serializedEventData = SerializeValue(eventData);
-        var serializedEventMetadata = SerializeValue(eventMetadata);
-        var eventName = GetEventName(eventData.GetType());
-        return (eventName, serializedEventData, serializedEventMetadata);
+        eventName = GetEventName(eventData.GetType());
+        return serializedEventData;
     }
 
-    public (object eventData, EventMetadata eventMetadata) DeserializeFromBytes(string eventTypeName, byte[] serializedEventData, byte[] serializedEventMetadata)
+    public object DeserializeFromBytes(string eventName, byte[] serializedEventData)
     {
         var jsonSerializedEventData = Encoding.UTF8.GetString(serializedEventData);
-        var jsonSerializedEventMetadata = Encoding.UTF8.GetString(serializedEventMetadata);
-
-        return DeserializeFromString(eventTypeName, jsonSerializedEventData, jsonSerializedEventMetadata);
+        return DeserializeFromString(eventName, jsonSerializedEventData);
     }
 
-    public (object eventData, EventMetadata eventMetadata) DeserializeFromString(string eventTypeName, string serializedEventData, string serializedEventMetadata)
+    public object DeserializeFromString(string eventName, string serializedEventData)
     {
-        var ed = DeserializeEventData(eventTypeName, serializedEventData);
-        var emd = DeserializeMetadata(serializedEventMetadata);
-        return (ed, emd);
+        var ed = DeserializeEventData(eventName, serializedEventData);
+        return ed;
     }
 
     private string SerializeValue(object value)
@@ -55,25 +49,10 @@ internal sealed class JsonEventSerializer : IEventSerializer
         return JsonSerializer.Serialize(value, SerializerOptions);
     }
 
-    private object DeserializeEventData(string eventTypeName, string jsonSerializedEventData)
+    private object DeserializeEventData(string eventName, string jsonSerializedEventData)
     {
-        var eventType = TryGetEventType(eventTypeName);
-
-        var e = DeserializeEventData(eventType, jsonSerializedEventData);
-
-        return e;
-    }
-
-    private object DeserializeEventData(Type eventType, string jsonSerializedEventData)
-    {
-        var e = JsonSerializer.Deserialize(jsonSerializedEventData, eventType, SerializerOptions);
-        return e!;
-    }
-
-    private EventMetadata DeserializeMetadata(string jsonSerializedEventMetadata)
-    {
-        var metadata = JsonSerializer.Deserialize<EventMetadata>(jsonSerializedEventMetadata, SerializerOptions);
-        return metadata!;
+        var eventType = TryGetEventType(eventName);
+        return JsonSerializer.Deserialize(jsonSerializedEventData, eventType, SerializerOptions)!;
     }
 
     private string GetEventName(Type eventType)

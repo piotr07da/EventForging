@@ -1,6 +1,6 @@
 ﻿namespace EventForging.CosmosDb;
 
-public interface IDocument
+internal interface IDocument
 {
     string Id { get; set; }
     string StreamId { get; set; }

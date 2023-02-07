@@ -10,6 +10,7 @@ public class Order : IEventForged
     public Events Events { get; }
 
     public Guid Id { get; private set; }
+    public bool Completed { get; private set; }
 
     public static Order Raise(Guid id)
     {
@@ -19,8 +20,22 @@ public class Order : IEventForged
         return order;
     }
 
+    public void Complete()
+    {
+        Events.Apply(new OrderCompletedEvent(Id));
+    }
+
     private void Apply(OrderRaisedEvent e)
     {
         Id = e.OrderId;
     }
+
+    private void Apply(OrderCompletedEvent e)
+    {
+        Completed = true;
+    }
 }
+
+public sealed record OrderRaisedEvent(Guid OrderId);
+
+public sealed record OrderCompletedEvent(Guid OrderId);

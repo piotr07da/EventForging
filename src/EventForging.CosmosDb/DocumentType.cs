@@ -1,6 +1,6 @@
 ﻿namespace EventForging.CosmosDb;
 
-public enum DocumentType
+internal enum DocumentType
 {
     Undefined,
     Header,

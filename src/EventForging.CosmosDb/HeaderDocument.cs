@@ -2,7 +2,7 @@
 
 namespace EventForging.CosmosDb;
 
-public class HeaderDocument : IDocument
+internal sealed class HeaderDocument : IDocument
 {
     public HeaderDocument()
     {
@@ -17,14 +17,14 @@ public class HeaderDocument : IDocument
         Version = -1;
     }
 
-    public string Id { get; set; }
+    public string? Id { get; set; }
 
-    public string StreamId { get; set; }
+    public string? StreamId { get; set; }
 
     public DocumentType DocumentType { get; set; }
 
     [JsonPropertyName("_etag")]
-    public string ETag { get; set; }
+    public string? ETag { get; set; }
 
     [JsonPropertyName("_ts")]
     public long Timestamp { get; set; }

@@ -2,7 +2,7 @@
 
 namespace EventForging.CosmosDb;
 
-public class DefaultStreamNameFactory : IStreamNameFactory
+internal sealed class DefaultStreamNameFactory : IStreamNameFactory
 {
     public static DefaultStreamNameFactory Instance { get; } = new();
 

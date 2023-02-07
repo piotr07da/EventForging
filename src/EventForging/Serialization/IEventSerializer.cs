@@ -2,8 +2,8 @@
 
 public interface IEventSerializer
 {
-    (string eventTypeName, byte[] serializedEventData, byte[] serializedEventMetadata) SerializeToBytes(object eventData, EventMetadata eventMetadata);
-    (string eventTypeName, string serializedEventData, string serializedEventMetadata) SerializeToString(object eventData, EventMetadata eventMetadata);
-    (object eventData, EventMetadata eventMetadata) DeserializeFromBytes(string eventTypeName, byte[] serializedEventData, byte[] serializedEventMetadata);
-    (object eventData, EventMetadata eventMetadata) DeserializeFromString(string eventTypeName, string serializedEventData, string serializedEventMetadata);
+    byte[] SerializeToBytes(object eventData, out string eventName);
+    string SerializeToString(object eventData, out string eventName);
+    object DeserializeFromBytes(string eventName, byte[] serializedEventData);
+    object DeserializeFromString(string eventName, string serializedEventData);
 }
