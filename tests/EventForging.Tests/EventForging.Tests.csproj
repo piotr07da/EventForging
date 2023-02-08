@@ -20,8 +20,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\src\EventForging.CosmosDb\EventForging.CosmosDb.csproj" />
-		<ProjectReference Include="..\..\src\EventForging.EventStore\EventForging.EventStore.csproj" />
 		<ProjectReference Include="..\..\src\EventForging.InMemory\EventForging.InMemory.csproj" />
 		<ProjectReference Include="..\..\src\EventForging\EventForging.csproj" />
 	</ItemGroup>
