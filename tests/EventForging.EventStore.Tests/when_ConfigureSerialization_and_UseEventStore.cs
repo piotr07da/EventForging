@@ -57,7 +57,7 @@ public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
         var orderId = Guid.NewGuid();
 
         var orderToSave = Order.Raise(orderId);
-        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
+        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid());
         var orderAfterSave = await repository.GetAsync(orderId);
 
         Assert.Equal(orderId, orderAfterSave.Id);

@@ -13,21 +13,18 @@ namespace EventForging.EventStore;
 internal sealed class EventStoreEventDatabase : IEventDatabase
 {
     private readonly EventStoreClient _client;
-    private readonly IEventStoreClientProvider _eventStoreClientProvider;
     private readonly IEventForgingEventStoreConfiguration _configuration;
     private readonly IStreamNameFactory _streamNameFactory;
     private readonly IEventSerializer _eventSerializer;
     private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
 
     public EventStoreEventDatabase(
-        IEventStoreClientProvider eventStoreClientProvider,
         IEventForgingEventStoreConfiguration configuration,
         IStreamNameFactory streamNameFactory,
         IEventSerializer eventSerializer,
         IJsonSerializerOptionsProvider serializerOptionsProvider,
         EventStoreClient client)
     {
-        _eventStoreClientProvider = eventStoreClientProvider ?? throw new ArgumentNullException(nameof(eventStoreClientProvider));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _streamNameFactory = streamNameFactory ?? throw new ArgumentNullException(nameof(streamNameFactory));
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
@@ -39,10 +36,8 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
 
     public async Task ReadAsync<TAggregate>(string aggregateId, IEventDatabaseReadCallback callback, CancellationToken cancellationToken = default)
     {
-        var client = _client; // _eventStoreClientProvider.GetClient();
-
         var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
-        await foreach (var re in client.ReadStreamAsync(Direction.Forwards, streamName, StreamPosition.Start, cancellationToken: cancellationToken))
+        await foreach (var re in _client.ReadStreamAsync(Direction.Forwards, streamName, StreamPosition.Start, cancellationToken: cancellationToken))
         {
             var ed = _eventSerializer.DeserializeFromBytes(re.Event.EventType, re.Event.Data.ToArray());
             callback.OnRead(ed);
@@ -51,8 +46,6 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
-        var client = _client; // _eventStoreClientProvider.GetClient();
-
         var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
         var eventsData = events.Select((e, eIx) =>
         {
@@ -66,15 +59,21 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
 
         try
         {
+            StreamRevision sv;
             if (expectedVersion.IsAny)
             {
-                await client.AppendToStreamAsync(streamName, StreamRevision.FromInt64(lastReadAggregateVersion), eventsData, cancellationToken: cancellationToken);
+                sv = StreamRevision.FromInt64(lastReadAggregateVersion);
+            }
+            else if (expectedVersion.IsNone)
+            {
+                sv = StreamRevision.None;
             }
             else
             {
-                var sv = expectedVersion == ExpectedVersion.None ? StreamRevision.None : StreamRevision.FromInt64(expectedVersion);
-                await client.AppendToStreamAsync(streamName, sv, eventsData, cancellationToken: cancellationToken);
+                sv = StreamRevision.FromInt64(expectedVersion);
             }
+
+            await _client.AppendToStreamAsync(streamName, sv, eventsData, cancellationToken: cancellationToken);
         }
         catch (WrongExpectedVersionException e)
         {
