@@ -2,6 +2,6 @@
 
 public interface IEventForgingEventStoreConfiguration
 {
-    string? ConnectionString { get; set; }
+    string? Address { get; set; }
     IdempotencyMode IdempotencyMode { get; set; }
 }

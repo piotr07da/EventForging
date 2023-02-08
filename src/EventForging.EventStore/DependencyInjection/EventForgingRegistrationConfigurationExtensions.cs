@@ -27,6 +27,12 @@ public static class EventForgingRegistrationConfigurationExtensions
         services.AddSingleton<IStreamNameFactory, DefaultStreamNameFactory>();
         services.AddSingleton<IJsonSerializerOptionsProvider, EventStoreJsonSerializerOptionsProvider>();
 
+
+        services.AddEventStoreClient(ess =>
+        {
+            ess.ConnectivitySettings.Address = new Uri(configuration.Address!);
+        });
+
         services.AddTransient<IEventDatabase, EventStoreEventDatabase>();
 
         services.AddHostedService<EventForgingEventStoreHostedService>();
@@ -36,5 +42,9 @@ public static class EventForgingRegistrationConfigurationExtensions
 
     private static void ValidateConfiguration(EventForgingEventStoreConfiguration configuration)
     {
+        if (string.IsNullOrEmpty(configuration.Address))
+        {
+            throw new EventForgingConfigurationException("EventStore address cannot be empty.");
+        }
     }
 }

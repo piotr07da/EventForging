@@ -31,7 +31,7 @@ public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
             });
             r.UseEventStore(cc =>
             {
-                cc.ConnectionString = ConnectionString;
+                cc.Address = ConnectionString;
             });
         });
         _serviceProvider = services.BuildServiceProvider();
@@ -64,7 +64,7 @@ public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
     }
 
     [Fact]
-    public async Task and_new_aggregate_saved_many_times_in_sequence_for_the_same_initiatorId_the_read_only_one_event_saved()
+    public async Task and_new_aggregate_saved_many_times_in_sequence_for_the_same_initiatorId_then_only_one_event_saved()
     {
         var repository = ResolveRepository();
         var orderId = Guid.NewGuid();
@@ -76,29 +76,64 @@ public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
             await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", i.ToString() }, });
         }
 
-        var mds = new List<EventMetadata>();
+        var mds = await LoadEventsAsync(orderId);
+
+        Assert.Single(mds);
+        Assert.Equal("0", mds[0].Metadata.CustomProperties["save"]);
+    }
+
+    [Fact]
+    public async Task and_new_aggregate_saved_many_times_in_parallel_for_the_same_initiatorId_then_only_one_event_saved()
+    {
+        var repository = ResolveRepository();
+        var orderId = Guid.NewGuid();
+        var initiatorId = Guid.NewGuid();
+
+        var orderToSave = Order.Raise(orderId);
+
+        var saveTasks = new List<Task>();
+        var saveIds = new List<string>();
+        for (var i = 0; i < 2; ++i)
+        {
+            var saveId = Guid.NewGuid().ToString();
+            saveIds.Add(saveId);
+            var saveTask = repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", saveId }, });
+            saveTasks.Add(saveTask);
+        }
+
+        await Task.WhenAll(saveTasks);
+
+        var mds = await LoadEventsAsync(orderId);
+
+        Assert.Single(mds);
+        Assert.Contains(mds[0].Metadata.CustomProperties["save"], saveIds);
+    }
+
+    private async Task<LoadedEvent[]> LoadEventsAsync(Guid orderId)
+    {
+        var les = new List<LoadedEvent>();
         await foreach (var re in _client.ReadStreamAsync(Direction.Forwards, $"Order-{orderId}", StreamPosition.Start))
         {
             var mdStr = Encoding.UTF8.GetString(re.Event.Metadata.ToArray());
             var md = JsonSerializer.Deserialize<EventMetadata>(mdStr)!;
-            mds.Add(md);
+            les.Add(new LoadedEvent(md));
         }
 
-        Assert.Single(mds);
-        Assert.Equal("0", mds[0].CustomProperties["save"]);
-    }
-
-    private async Task<Order> prepare_existing_aggregate(Guid orderId)
-    {
-        var orderToSave = Order.Raise(orderId);
-        var repository = ResolveRepository();
-        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
-        var existingOrder = await repository.GetAsync(orderId);
-        return existingOrder;
+        return les.ToArray();
     }
 
     private IRepository<Order> ResolveRepository()
     {
         return _serviceProvider.GetRequiredService<IRepository<Order>>();
+    }
+
+    private class LoadedEvent
+    {
+        public LoadedEvent(EventMetadata metadata)
+        {
+            Metadata = metadata;
+        }
+
+        public EventMetadata Metadata { get; }
     }
 }
