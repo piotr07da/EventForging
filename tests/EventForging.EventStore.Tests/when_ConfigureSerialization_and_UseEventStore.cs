@@ -25,10 +25,7 @@ public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
         var services = new ServiceCollection();
         services.AddEventForging(r =>
         {
-            r.ConfigureSerialization(sc =>
-            {
-                sc.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(Assembly.GetExecutingAssembly()));
-            });
+            r.Configuration.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(Assembly.GetExecutingAssembly()));
             r.UseEventStore(cc =>
             {
                 cc.Address = ConnectionString;

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using EventForging.Idempotency;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
@@ -14,13 +15,13 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 {
     private readonly ICosmosDbProvider _cosmosDbProvider;
     private readonly IStreamNameFactory _streamNameFactory;
-    private readonly IEventForgingCosmosDbConfiguration _configuration;
+    private readonly IEventForgingConfiguration _configuration;
     private readonly ILogger _logger;
 
     public CosmosDbEventDatabase(
         ICosmosDbProvider cosmosDbProvider,
         IStreamNameFactory streamNameFactory,
-        IEventForgingCosmosDbConfiguration configuration,
+        IEventForgingConfiguration configuration,
         ILoggerFactory? loggerFactory = null)
     {
         _cosmosDbProvider = cosmosDbProvider ?? throw new ArgumentNullException(nameof(cosmosDbProvider));
@@ -119,7 +120,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             transaction.ReplaceItem(headerItem.Id, headerItem, new TransactionalBatchItemRequestOptions { IfMatchEtag = headerItem.ETag, EnableContentResponseOnWrite = false, });
         }
 
-        var eventItems = events.Select((e, i) => CreateStreamEventDocument(streamId, currentVersion + i + 1, e, conversationId, initiatorId, customProperties));
+        var eventItems = events.Select((e, eIx) =>
+        {
+            var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+            return CreateStreamEventDocument(streamId, eventId, currentVersion + eIx + 1, e, conversationId, initiatorId, customProperties);
+        });
 
         foreach (var eventItem in eventItems)
         {
@@ -184,9 +189,9 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     }
 
 
-    private static EventDocument CreateStreamEventDocument(string streamId, int eventNumber, object eventData, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
+    private static EventDocument CreateStreamEventDocument(string streamId, Guid eventId, int eventNumber, object eventData, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
     {
-        return new EventDocument(streamId, eventNumber, eventData, new EventMetadata(conversationId, initiatorId, customProperties));
+        return new EventDocument(streamId, eventId, eventNumber, eventData, new EventMetadata(conversationId, initiatorId, customProperties));
     }
 
     private static HeaderDocument CreateStreamHeaderDocument(string streamId)

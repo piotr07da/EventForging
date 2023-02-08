@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using EventForging.Idempotency;
 using EventForging.Serialization;
 using EventStore.Client;
 
@@ -13,13 +14,13 @@ namespace EventForging.EventStore;
 internal sealed class EventStoreEventDatabase : IEventDatabase
 {
     private readonly EventStoreClient _client;
-    private readonly IEventForgingEventStoreConfiguration _configuration;
+    private readonly IEventForgingConfiguration _configuration;
     private readonly IStreamNameFactory _streamNameFactory;
     private readonly IEventSerializer _eventSerializer;
     private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
 
     public EventStoreEventDatabase(
-        IEventForgingEventStoreConfiguration configuration,
+        IEventForgingConfiguration configuration,
         IStreamNameFactory streamNameFactory,
         IEventSerializer eventSerializer,
         IJsonSerializerOptionsProvider serializerOptionsProvider,
@@ -29,7 +30,7 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
         _streamNameFactory = streamNameFactory ?? throw new ArgumentNullException(nameof(streamNameFactory));
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
-        _client = client;
+        _client = client ?? throw new ArgumentNullException(nameof(client));
     }
 
     private JsonSerializerOptions JsonSerializerOptions => _serializerOptionsProvider.Get();
@@ -53,7 +54,7 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
             var eventMetadataJson = JsonSerializer.Serialize(new EventMetadata(conversationId, initiatorId, customProperties), JsonSerializerOptions);
             var eventMetadata = Encoding.UTF8.GetBytes(eventMetadataJson);
 
-            var eventId = GenerateEventId(initiatorId, eIx);
+            var eventId = _configuration.IdempotencyEnabled ? Uuid.FromGuid(IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx)) : Uuid.NewUuid();
             return new EventData(eventId, eventTypeName, eventData, eventMetadata);
         });
 
@@ -79,46 +80,5 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
         {
             throw new EventForgingUnexpectedVersionException(aggregateId, streamName, expectedVersion, lastReadAggregateVersion, e.ActualStreamRevision.ToInt64(), e);
         }
-    }
-
-    private Uuid GenerateEventId(Guid initiatorId, int eventIndex)
-    {
-        switch (_configuration.IdempotencyMode)
-        {
-            case IdempotencyMode.Disabled:
-                return Uuid.NewUuid();
-
-            case IdempotencyMode.BasedOnInitiatorId:
-                return GenerateIdempotentEventId(initiatorId, eventIndex);
-
-            default:
-                throw new EventForgingConfigurationException($"Unsupported idempotency mode {_configuration.IdempotencyMode}.");
-        }
-    }
-
-    private static Uuid GenerateIdempotentEventId(Guid initiatorId, int eventIndex)
-    {
-        if (initiatorId == Guid.Empty)
-        {
-            throw new EventForgingException($"If the idempotency mode was selected to be {nameof(IdempotencyMode.BasedOnInitiatorId)}, then initiatorId cannot be equal to an empty Guid.");
-        }
-
-        var initiatorIdBytes = initiatorId.ToByteArray();
-
-        for (var i = 0; i < initiatorIdBytes.Length; ++i)
-        {
-            var b = initiatorIdBytes[i];
-            b = (byte)(b ^ 0b11010100);
-            if (i < 4) // eventIndex is of type int so there are 4 bytes
-            {
-                var eventIndexMask = (byte)(eventIndex >> 8);
-                b = (byte)(b ^ eventIndexMask);
-            }
-
-            initiatorIdBytes[i] = b;
-        }
-
-        var eventId = new Guid(initiatorIdBytes);
-        return Uuid.FromGuid(eventId);
     }
 }

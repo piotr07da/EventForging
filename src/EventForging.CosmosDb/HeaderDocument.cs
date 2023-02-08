@@ -17,9 +17,9 @@ internal sealed class HeaderDocument : IDocument
         Version = -1;
     }
 
-    public string? Id { get; set; }
-
     public string? StreamId { get; set; }
+
+    public string? Id { get; set; }
 
     public DocumentType DocumentType { get; set; }
 

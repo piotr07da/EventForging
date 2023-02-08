@@ -5,4 +5,5 @@ namespace EventForging.DependencyInjection;
 public interface IEventForgingRegistrationConfiguration
 {
     IServiceCollection Services { get; }
+    IEventForgingConfiguration Configuration { get; }
 }

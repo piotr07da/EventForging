@@ -10,21 +10,19 @@ internal sealed class EventDocument : IDocument
     {
     }
 
-    public EventDocument(string streamId, int eventNumber, object data, EventMetadata metadata)
+    public EventDocument(string streamId, Guid eventId, int eventNumber, object data, EventMetadata metadata)
     {
-        Id = $"{eventNumber}@{streamId}";
         StreamId = streamId;
-        EventId = Guid.NewGuid();
+        Id = eventId.ToString();
         DocumentType = DocumentType.Event;
-
         EventNumber = eventNumber;
         Data = data;
         Metadata = metadata;
     }
 
-    public string? Id { get; set; }
-
     public string? StreamId { get; set; }
+
+    public string? Id { get; set; }
 
     public DocumentType DocumentType { get; set; }
 
@@ -33,8 +31,6 @@ internal sealed class EventDocument : IDocument
 
     [JsonPropertyName("_ts")]
     public long Timestamp { get; set; }
-
-    public Guid EventId { get; set; }
 
     public int EventNumber { get; set; }
 
@@ -51,7 +47,6 @@ internal sealed class EventDocument : IDocument
             StreamId = StreamId,
             Id = Id,
             DocumentType = DocumentType,
-            EventId = EventId,
             EventNumber = EventNumber,
             EventType = EventType,
             Data = Data,
