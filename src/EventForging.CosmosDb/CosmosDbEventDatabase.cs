@@ -44,7 +44,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         {
             var page = await iterator.ReadNextAsync(cancellationToken);
 
-            var events = page.Select(ed => ed.Data).ToArray();
+            var events = page.Select(ed => ed.Data ?? throw new EventForgingException($"Event {ed.Id ?? "NULL"} has no data.")).ToArray();
             callback.OnRead(events);
         }
 
@@ -64,66 +64,38 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
 
-        HeaderDocument headerItem;
-        var isNew = false;
-
-        if (lastReadAggregateVersion.AggregateDoesNotExist)
-        {
-            if (!expectedVersion.IsNone && !expectedVersion.IsAny)
-            {
-                throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, null);
-            }
-
-            headerItem = CreateStreamHeaderDocument(streamId);
-            isNew = true;
-        }
-        else
-        {
-            var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(aggregateId, initiatorId, cancellationToken);
-            if (alreadyWritten)
-            {
-                LogIdempotencyWarning(aggregateId, initiatorId);
-                return;
-            }
-
-            if (expectedVersion.IsNone)
-            {
-                throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, null);
-            }
-
-            headerItem = await ReadHeaderAsync<TAggregate>(streamId, cancellationToken);
-
-            if (!expectedVersion.IsAny && headerItem.Version != expectedVersion)
-            {
-                throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, headerItem.Version);
-            }
-
-            if (expectedVersion.IsAny && headerItem.Version != lastReadAggregateVersion)
-            {
-                throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, headerItem.Version);
-            }
-        }
-
-        var currentVersion = headerItem.Version;
-
-        headerItem.Version += events.Count;
-
         var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };
         var transaction = GetContainer<TAggregate>().CreateTransactionalBatch(new PartitionKey(streamId));
 
-        if (isNew)
+        if (lastReadAggregateVersion.AggregateDoesNotExist)
         {
-            transaction.CreateItem(headerItem, requestOptions);
+            transaction.CreateItem(CreateStreamHeaderDocument(streamId, events.Count), requestOptions);
         }
         else
         {
-            transaction.ReplaceItem(headerItem.Id, headerItem, new TransactionalBatchItemRequestOptions { IfMatchEtag = headerItem.ETag, EnableContentResponseOnWrite = false, });
+            long expectedHeaderVersion;
+            if (expectedVersion.IsAny)
+            {
+                expectedHeaderVersion = lastReadAggregateVersion;
+            }
+            else if (expectedVersion.IsNone)
+            {
+                // Because this is the case in which lastReadAggregateVersion.AggregateExists is true then this case (expectedVersion.IsNone) will never occur
+                // due to the check performed in the Repository class (lastReadAggregateVersion.AggregateExists && expectedVersion.IsNone already throws exception).
+                expectedHeaderVersion = -1;
+            }
+            else
+            {
+                expectedHeaderVersion = expectedVersion;
+            }
+
+            transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, new TransactionalBatchPatchItemRequestOptions { EnableContentResponseOnWrite = false, FilterPredicate = $"FROM x WHERE x.version = {expectedHeaderVersion}", });
         }
 
         var eventItems = events.Select((e, eIx) =>
         {
             var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-            return CreateStreamEventDocument(streamId, eventId, currentVersion + eIx + 1, e, conversationId, initiatorId, customProperties);
+            return CreateStreamEventDocument(streamId, eventId, lastReadAggregateVersion + eIx + 1, e, conversationId, initiatorId, customProperties);
         });
 
         foreach (var eventItem in eventItems)
@@ -138,11 +110,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(aggregateId, initiatorId, cancellationToken);
             if (alreadyWritten)
             {
-                LogIdempotencyWarning(aggregateId, initiatorId);
+                LogIdempotencyCheck(aggregateId, initiatorId);
                 return;
             }
 
-            headerItem = await ReadHeaderAsync<TAggregate>(streamId, cancellationToken);
+            var headerItem = await ReadHeaderAsync<TAggregate>(streamId, cancellationToken);
 
             throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, headerItem.Version);
         }
@@ -194,13 +166,15 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         return new EventDocument(streamId, eventId, eventNumber, eventData, new EventMetadata(conversationId, initiatorId, customProperties));
     }
 
-    private static HeaderDocument CreateStreamHeaderDocument(string streamId)
+    private static HeaderDocument CreateStreamHeaderDocument(string streamId, int eventsCount)
     {
-        return new HeaderDocument(streamId);
+        var header = new HeaderDocument(streamId);
+        header.Version += eventsCount;
+        return header;
     }
 
-    private void LogIdempotencyWarning(string aggregateId, Guid initiatorId)
+    private void LogIdempotencyCheck(string aggregateId, Guid initiatorId)
     {
-        _logger.LogWarning($"Cannot write events for aggregate {aggregateId} because these events has already been written for the same initiatorId {initiatorId}.");
+        _logger.LogDebug($"Cannot write events for aggregate {aggregateId} because these events has already been written for the same initiatorId '{initiatorId}'.");
     }
 }

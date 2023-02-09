@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net7.0</TargetFramework>
+		<Copyright>Piotr Bejger</Copyright>
+		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+		<Version>1.0.1-alpha</Version>
+		<Authors>piotr07da</Authors>
+		<Company>Piotr Bejger</Company>
+		<Description>EventForging.Sql is SqlServer implementation of EventForging - free, open-source .NET framework for event sourced applications.</Description>
+		<RepositoryUrl>https://github.com/piotr07da/EventForging</RepositoryUrl>
+		<PackageTags>event; events; event sourcing; event driven; event forging; sql server;</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="7.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
+		<PackageReference Include="System.Text.Json" Version="7.0.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\EventForging\EventForging.csproj" />
+	</ItemGroup>
+
+</Project>

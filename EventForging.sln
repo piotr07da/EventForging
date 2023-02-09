@@ -22,6 +22,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.CosmosDb.Tests
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.EventStore.Tests", "tests\EventForging.EventStore.Tests\EventForging.EventStore.Tests.csproj", "{4E6974D6-7883-4EF6-AA36-C4703C200785}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.Sql", "src\EventForging.Sql\EventForging.Sql.csproj", "{E555CCAB-7860-49AA-8E4D-4C8FB3D026A6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.DatabaseIntegrationTests.Common", "tests\EventForging.DatabaseIntegrationTests.Common\EventForging.DatabaseIntegrationTests.Common.csproj", "{517059A0-D3DB-49F8-AB4B-0122003F7184}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -56,6 +60,14 @@ Global
 		{4E6974D6-7883-4EF6-AA36-C4703C200785}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E6974D6-7883-4EF6-AA36-C4703C200785}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4E6974D6-7883-4EF6-AA36-C4703C200785}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E555CCAB-7860-49AA-8E4D-4C8FB3D026A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E555CCAB-7860-49AA-8E4D-4C8FB3D026A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E555CCAB-7860-49AA-8E4D-4C8FB3D026A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E555CCAB-7860-49AA-8E4D-4C8FB3D026A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{517059A0-D3DB-49F8-AB4B-0122003F7184}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{517059A0-D3DB-49F8-AB4B-0122003F7184}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{517059A0-D3DB-49F8-AB4B-0122003F7184}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{517059A0-D3DB-49F8-AB4B-0122003F7184}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

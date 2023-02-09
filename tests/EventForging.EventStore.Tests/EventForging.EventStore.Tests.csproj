@@ -22,6 +22,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\EventForging.EventStore\EventForging.EventStore.csproj" />
 		<ProjectReference Include="..\..\src\EventForging\EventForging.csproj" />
+		<ProjectReference Include="..\EventForging.DatabaseIntegrationTests.Common\EventForging.DatabaseIntegrationTests.Common.csproj" />
 	</ItemGroup>
 
 </Project>

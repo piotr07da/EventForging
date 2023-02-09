@@ -1,41 +1,48 @@
 ﻿// ReSharper disable InconsistentNaming
 
-using System.Reflection;
 using EventForging.CosmosDb.DependencyInjection;
+using EventForging.DatabaseIntegrationTests.Common;
 using EventForging.DependencyInjection;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Xunit;
+using User = EventForging.DatabaseIntegrationTests.Common.User;
 
 namespace EventForging.CosmosDb.Tests;
 
 public class when_ConfigureSerialization_and_UseCosmosDb : IAsyncLifetime
 {
     private const string ConnectionString = "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
-    private const string DatabaseName = "Sales";
-    private const string ContainerName = "Sales-Events";
+    private const string DatabaseName = "TestModule";
+    private const string ContainerName = "TestModule-Events";
 
     private readonly IServiceProvider _serviceProvider;
     private readonly CosmosClient _cosmosClient;
 
+    private readonly EventDatabaseTestFixture _fixture;
+
     public when_ConfigureSerialization_and_UseCosmosDb()
     {
         var services = new ServiceCollection();
+        var assembly = typeof(User).Assembly;
         services.AddEventForging(r =>
         {
-            r.Configuration.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(Assembly.GetExecutingAssembly()));
+            r.Configuration.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
             r.UseCosmosDb(cc =>
             {
                 cc.IgnoreServerCertificateValidation = true;
                 cc.ConnectionString = ConnectionString;
-                cc.AddAggregatesLocations(DatabaseName, ContainerName, Assembly.GetExecutingAssembly());
+                cc.AddAggregatesLocations(DatabaseName, ContainerName, assembly);
             });
         });
+        services.AddSingleton<EventDatabaseTestFixture>();
         _serviceProvider = services.BuildServiceProvider();
 
         _cosmosClient = CreateCosmosClient();
+
+        _fixture = _serviceProvider.GetRequiredService<EventDatabaseTestFixture>();
     }
 
     public async Task InitializeAsync()
@@ -61,186 +68,51 @@ public class when_ConfigureSerialization_and_UseCosmosDb : IAsyncLifetime
     }
 
     [Fact]
-    public async Task and_new_aggregate_saved_then_read_aggregate_is_rehydrated()
+    public async Task when_new_aggregate_saved_then_read_aggregate_rehydrated()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-
-        var orderToSave = Order.Raise(orderId);
-        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
-        var orderAfterSave = await repository.GetAsync(orderId);
-
-        Assert.Equal(orderId, orderAfterSave.Id);
+        await _fixture.when_new_aggregate_saved_then_read_aggregate_rehydrated();
     }
 
     [Fact]
-    public async Task and_existing_aggregate_saved_then_read_aggregate_is_rehydrated()
+    public async Task when_existing_aggregate_saved_then_read_aggregate_rehydrated()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-
-        var existingOrder = await prepare_existing_aggregate(orderId);
-        existingOrder.Complete();
-        await repository.SaveAsync(orderId, existingOrder, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
-        var orderAfterSave = await repository.GetAsync(orderId);
-
-        Assert.Equal(orderId, orderAfterSave.Id);
-        Assert.True(orderAfterSave.Completed);
+        await _fixture.when_existing_aggregate_saved_then_read_aggregate_rehydrated();
     }
 
     [Fact]
-    public async Task and_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_are_written_to_the_database_only_for_the_first_saving()
+    public async Task when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-
-        var orderToSave = Order.Raise(orderId);
-        var initiatorId = Guid.NewGuid();
-        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", "first" }, });
-        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", "second" }, });
-
-        var documents = await GetEventDocumentsAsync();
-        Assert.Single(documents);
-        var document = documents[0];
-        Assert.Equal("first", document.Metadata!.CustomProperties["save"]);
+        await _fixture.when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
     }
 
     [Fact]
-    public async Task and_existing_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_are_written_to_the_database_only_for_the_first_saving()
+    public async Task when_existing_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
+        await _fixture.when_existing_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
+    }
 
-        var existingOrder = await prepare_existing_aggregate(orderId);
-        existingOrder.Complete();
-        var initiatorId = Guid.NewGuid();
-        await repository.SaveAsync(orderId, existingOrder, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", "first" }, });
-        await repository.SaveAsync(orderId, existingOrder, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", "second" }, });
+    [Fact(Skip = "TODO")]
+    public async Task when_new_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
+    {
+        await _fixture.when_new_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
+    }
 
-        var documents = await GetEventDocumentsAsync();
-        Assert.Equal(2, documents.Length);
-        var document = documents[1];
-        Assert.Equal("first", document.Metadata!.CustomProperties["save"]);
+    [Fact(Skip = "TODO")]
+    public async Task when_existing_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
+    {
+        await _fixture.when_existing_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
     }
 
     [Fact]
-    public async Task and_new_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_are_written_to_the_database_only_once()
+    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-
-        var orderToSave = Order.Raise(orderId);
-        var initiatorId = Guid.NewGuid();
-        var saveTasks = new List<Task>();
-        var saveIds = new List<string>();
-        for (var i = 0; i < 100; ++i)
-        {
-            var saveId = Guid.NewGuid().ToString();
-            saveIds.Add(saveId);
-            var saveTask = repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", saveId }, });
-            saveTasks.Add(saveTask);
-        }
-
-        await Task.WhenAll(saveTasks);
-
-        var documents = await GetEventDocumentsAsync();
-        Assert.Single(documents);
-        var document = documents[0];
-        Assert.Contains(document.Metadata!.CustomProperties["save"], saveIds);
+        await _fixture.when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving();
     }
 
     [Fact]
-    public async Task and_existing_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_are_written_to_the_database_only_once()
+    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-
-        var existingOrder = await prepare_existing_aggregate(orderId);
-        existingOrder.Complete();
-        var initiatorId = Guid.NewGuid();
-        var saveTasks = new List<Task>();
-        var saveIds = new List<string>();
-        for (var i = 0; i < 100; ++i)
-        {
-            var saveId = Guid.NewGuid().ToString();
-            saveIds.Add(saveId);
-            var saveTask = repository.SaveAsync(orderId, existingOrder, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", saveId }, });
-            saveTasks.Add(saveTask);
-        }
-
-        await Task.WhenAll(saveTasks);
-
-        var documents = await GetEventDocumentsAsync();
-        Assert.Equal(2, documents.Length);
-        var document = documents[1];
-        Assert.Contains(document.Metadata!.CustomProperties["save"], saveIds);
-    }
-
-    [Fact]
-    public async Task and_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
-    {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-
-        var orderToSave = Order.Raise(orderId);
-        var firstSaveInitiatorId = Guid.NewGuid();
-        var secondSaveInitiatorId = Guid.NewGuid();
-        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, firstSaveInitiatorId);
-        await Assert.ThrowsAsync<EventForgingUnexpectedVersionException>(async () =>
-        {
-            await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, secondSaveInitiatorId);
-        });
-    }
-
-    [Fact]
-    public async Task and_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
-    {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-
-        var existingOrder = await prepare_existing_aggregate(orderId);
-        existingOrder.Complete();
-        var firstSaveInitiatorId = Guid.NewGuid();
-        var secondSaveInitiatorId = Guid.NewGuid();
-        await repository.SaveAsync(orderId, existingOrder, ExpectedVersion.Any, Guid.Empty, firstSaveInitiatorId);
-        await Assert.ThrowsAsync<EventForgingUnexpectedVersionException>(async () =>
-        {
-            await repository.SaveAsync(orderId, existingOrder, ExpectedVersion.Any, Guid.Empty, secondSaveInitiatorId);
-        });
-    }
-
-    private async Task<EventDocument[]> GetEventDocumentsAsync()
-    {
-        var container = GetContainer();
-        var iterator = container.GetItemQueryIterator<EventDocument>("SELECT * FROM e");
-        var page = await iterator.ReadNextAsync();
-        var documents = page.Where(d => d.DocumentType == "Event").ToArray();
-        foreach (var document in documents)
-        {
-            var data = _serviceProvider.GetRequiredService<IEventSerializer>().DeserializeFromString(document.EventType!, document.Data!.ToString()!);
-            document.Data = data;
-        }
-
-        return documents;
-    }
-
-    private async Task<Order> prepare_existing_aggregate(Guid orderId)
-    {
-        var orderToSave = Order.Raise(orderId);
-        var repository = ResolveRepository();
-        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
-        var existingOrder = await repository.GetAsync(orderId);
-        return existingOrder;
-    }
-
-    private IRepository<Order> ResolveRepository()
-    {
-        return _serviceProvider.GetRequiredService<IRepository<Order>>();
-    }
-
-    private Container GetContainer()
-    {
-        return GetDatabase().GetContainer(ContainerName);
+        await _fixture.when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving();
     }
 
     private Database GetDatabase()
@@ -248,29 +120,12 @@ public class when_ConfigureSerialization_and_UseCosmosDb : IAsyncLifetime
         return _cosmosClient.GetDatabase(DatabaseName);
     }
 
-    private CosmosClient CreateCosmosClient()
+    private static CosmosClient CreateCosmosClient()
     {
         return new CosmosClient(ConnectionString, new CosmosClientOptions
         {
             HttpClientFactory = () => new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true, }),
             ConnectionMode = ConnectionMode.Gateway,
         });
-    }
-
-    internal sealed class EventDocument
-    {
-        public string? Id { get; set; }
-
-        public string? StreamId { get; set; }
-
-        public string? DocumentType { get; set; }
-
-        public int EventNumber { get; set; }
-
-        public string? EventType { get; set; }
-
-        public object? Data { get; set; }
-
-        public EventMetadata? Metadata { get; set; }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EventForging.DependencyInjection;
@@ -18,7 +19,9 @@ public static class ServiceCollectionExtensions
         configurator(registrationConfiguration);
 
         services.AddSingleton(typeof(IEventForgingConfiguration), configuration);
+        services.AddSingleton(typeof(IEventForgingSerializationConfiguration), configuration.Serialization);
         services.AddTransient(typeof(IRepository<>), typeof(Repository<>));
+        services.AddSingleton<IEventSerializer, JsonEventSerializer>();
 
         return services;
     }

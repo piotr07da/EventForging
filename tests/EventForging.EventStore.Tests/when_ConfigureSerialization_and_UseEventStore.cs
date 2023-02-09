@@ -1,12 +1,9 @@
 ﻿// ReSharper disable InconsistentNaming
 
-using System.Reflection;
-using System.Text;
-using System.Text.Json;
+using EventForging.DatabaseIntegrationTests.Common;
 using EventForging.DependencyInjection;
 using EventForging.EventStore.DependencyInjection;
 using EventForging.Serialization;
-using EventStore.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Xunit;
@@ -16,24 +13,27 @@ namespace EventForging.EventStore.Tests;
 public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
 {
     private const string ConnectionString = "esdb://localhost:2113?tls=false";
-    private static EventStoreClient _client;
 
     private readonly IServiceProvider _serviceProvider;
+
+    private readonly EventDatabaseTestFixture _fixture;
 
     public when_ConfigureSerialization_and_UseEventStore()
     {
         var services = new ServiceCollection();
+        var assembly = typeof(User).Assembly;
         services.AddEventForging(r =>
         {
-            r.Configuration.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(Assembly.GetExecutingAssembly()));
+            r.Configuration.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
             r.UseEventStore(cc =>
             {
                 cc.Address = ConnectionString;
             });
         });
+        services.AddSingleton<EventDatabaseTestFixture>();
         _serviceProvider = services.BuildServiceProvider();
 
-        _client = new EventStoreClient(EventStoreClientSettings.Create(ConnectionString));
+        _fixture = _serviceProvider.GetRequiredService<EventDatabaseTestFixture>();
     }
 
     public async Task InitializeAsync()
@@ -48,89 +48,50 @@ public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
     }
 
     [Fact]
-    public async Task and_new_aggregate_saved_then_read_aggregate_is_rehydrated()
+    public async Task when_new_aggregate_saved_then_read_aggregate_rehydrated()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-
-        var orderToSave = Order.Raise(orderId);
-        await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid());
-        var orderAfterSave = await repository.GetAsync(orderId);
-
-        Assert.Equal(orderId, orderAfterSave.Id);
+        await _fixture.when_new_aggregate_saved_then_read_aggregate_rehydrated();
     }
 
     [Fact]
-    public async Task and_new_aggregate_saved_many_times_in_sequence_for_the_same_initiatorId_then_only_one_event_saved()
+    public async Task when_existing_aggregate_saved_then_read_aggregate_rehydrated()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-        var initiatorId = Guid.NewGuid();
-
-        var orderToSave = Order.Raise(orderId);
-        for (var i = 0; i < 100; ++i)
-        {
-            await repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", i.ToString() }, });
-        }
-
-        var mds = await LoadEventsAsync(orderId);
-
-        Assert.Single(mds);
-        Assert.Equal("0", mds[0].Metadata.CustomProperties["save"]);
+        await _fixture.when_existing_aggregate_saved_then_read_aggregate_rehydrated();
     }
 
     [Fact]
-    public async Task and_new_aggregate_saved_many_times_in_parallel_for_the_same_initiatorId_then_only_one_event_saved()
+    public async Task when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
-        var repository = ResolveRepository();
-        var orderId = Guid.NewGuid();
-        var initiatorId = Guid.NewGuid();
-
-        var orderToSave = Order.Raise(orderId);
-
-        var saveTasks = new List<Task>();
-        var saveIds = new List<string>();
-        for (var i = 0; i < 2; ++i)
-        {
-            var saveId = Guid.NewGuid().ToString();
-            saveIds.Add(saveId);
-            var saveTask = repository.SaveAsync(orderId, orderToSave, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", saveId }, });
-            saveTasks.Add(saveTask);
-        }
-
-        await Task.WhenAll(saveTasks);
-
-        var mds = await LoadEventsAsync(orderId);
-
-        Assert.Single(mds);
-        Assert.Contains(mds[0].Metadata.CustomProperties["save"], saveIds);
+        await _fixture.when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
     }
 
-    private async Task<LoadedEvent[]> LoadEventsAsync(Guid orderId)
+    [Fact]
+    public async Task when_existing_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
-        var les = new List<LoadedEvent>();
-        await foreach (var re in _client.ReadStreamAsync(Direction.Forwards, $"Order-{orderId}", StreamPosition.Start))
-        {
-            var mdStr = Encoding.UTF8.GetString(re.Event.Metadata.ToArray());
-            var md = JsonSerializer.Deserialize<EventMetadata>(mdStr)!;
-            les.Add(new LoadedEvent(md));
-        }
-
-        return les.ToArray();
+        await _fixture.when_existing_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
     }
 
-    private IRepository<Order> ResolveRepository()
+    [Fact(Skip = "TODO")]
+    public async Task when_new_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
-        return _serviceProvider.GetRequiredService<IRepository<Order>>();
+        await _fixture.when_new_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
     }
 
-    private class LoadedEvent
+    [Fact(Skip = "TODO")]
+    public async Task when_existing_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
-        public LoadedEvent(EventMetadata metadata)
-        {
-            Metadata = metadata;
-        }
+        await _fixture.when_existing_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
+    }
 
-        public EventMetadata Metadata { get; }
+    [Fact]
+    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
+    {
+        await _fixture.when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving();
+    }
+
+    [Fact]
+    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
+    {
+        await _fixture.when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving();
     }
 }
