@@ -13,7 +13,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.CosmosDb", "sr
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6B9FE1FB-2A77-49BF-A313-E83E1AA7B9BE}"
 	ProjectSection(SolutionItems) = preProject
-		.github\workflows\build-n-publish.yml = .github\workflows\build-n-publish.yml
 		README.md = README.md
 	EndProjectSection
 EndProject
@@ -26,6 +25,21 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.Sql", "src\EventForging.Sql\EventForging.Sql.csproj", "{E555CCAB-7860-49AA-8E4D-4C8FB3D026A6}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.DatabaseIntegrationTests.Common", "tests\EventForging.DatabaseIntegrationTests.Common\EventForging.DatabaseIntegrationTests.Common.csproj", "{517059A0-D3DB-49F8-AB4B-0122003F7184}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4A506ED4-A068-40E1-8D72-292D249DB9DF}"
+	ProjectSection(SolutionItems) = preProject
+		src\Directory.Build.props = src\Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{9B2B13F8-C234-4FE2-8DD7-93C71482B485}"
+	ProjectSection(SolutionItems) = preProject
+		tests\Directory.Build.props = tests\Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "githubworkflows", "githubworkflows", "{5412F5E5-A46D-4CDE-B42E-CC9C935DC2F8}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\build-n-publish.yml = .github\workflows\build-n-publish.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -72,6 +86,11 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4A506ED4-A068-40E1-8D72-292D249DB9DF} = {6B9FE1FB-2A77-49BF-A313-E83E1AA7B9BE}
+		{9B2B13F8-C234-4FE2-8DD7-93C71482B485} = {6B9FE1FB-2A77-49BF-A313-E83E1AA7B9BE}
+		{5412F5E5-A46D-4CDE-B42E-CC9C935DC2F8} = {6B9FE1FB-2A77-49BF-A313-E83E1AA7B9BE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6E4FBD2B-24C5-49B2-8341-F1C6ACD68B80}

@@ -10,6 +10,7 @@ using Xunit;
 
 namespace EventForging.EventStore.Tests;
 
+[Trait("Category", "Integration")]
 public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
 {
     private const string ConnectionString = "esdb://localhost:2113?tls=false";
