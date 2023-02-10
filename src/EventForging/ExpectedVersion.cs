@@ -39,7 +39,5 @@ public readonly struct ExpectedVersion
         return new ExpectedVersion(v);
     }
 
-    public static implicit operator ulong(ExpectedVersion ev) => (ulong)ev.Value;
     public static implicit operator long(ExpectedVersion ev) => ev.Value;
-    public static implicit operator int(ExpectedVersion ev) => (int)ev.Value;
 }

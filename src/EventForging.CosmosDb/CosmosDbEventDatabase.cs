@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Net;
 using EventForging.Idempotency;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -82,7 +77,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             {
                 // Because this is the case in which lastReadAggregateVersion.AggregateExists is true then this case (expectedVersion.IsNone) will never occur
                 // due to the check performed in the Repository class (lastReadAggregateVersion.AggregateExists && expectedVersion.IsNone already throws exception).
-                expectedHeaderVersion = -1;
+                expectedHeaderVersion = -1L;
             }
             else
             {
@@ -95,7 +90,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         var eventItems = events.Select((e, eIx) =>
         {
             var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-            return CreateStreamEventDocument(streamId, eventId, lastReadAggregateVersion + eIx + 1, e, conversationId, initiatorId, customProperties);
+            return CreateStreamEventDocument(streamId, eventId, lastReadAggregateVersion + eIx + 1L, e, conversationId, initiatorId, customProperties);
         });
 
         foreach (var eventItem in eventItems)
@@ -161,7 +156,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     }
 
 
-    private static EventDocument CreateStreamEventDocument(string streamId, Guid eventId, int eventNumber, object eventData, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
+    private static EventDocument CreateStreamEventDocument(string streamId, Guid eventId, long eventNumber, object eventData, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
     {
         return new EventDocument(streamId, eventId, eventNumber, eventData, new EventMetadata(conversationId, initiatorId, customProperties));
     }

@@ -1,10 +1,8 @@
-﻿using System;
-
-namespace EventForging.Idempotency;
+﻿namespace EventForging.Idempotency;
 
 public static class IdempotentEventIdGenerator
 {
-    public static Guid GenerateIdempotentEventId(Guid initiatorId, int eventIndex)
+    public static Guid GenerateIdempotentEventId(Guid initiatorId, long eventIndex)
     {
         if (initiatorId == Guid.Empty)
         {
@@ -17,7 +15,7 @@ public static class IdempotentEventIdGenerator
         {
             var b = initiatorIdBytes[i];
             b = (byte)(b ^ 0b11010100);
-            if (i < 4) // eventIndex is of type int so there are 4 bytes
+            if (i < 8) // eventIndex is of type int so there are 8 bytes
             {
                 var eventIndexMask = (byte)(eventIndex >> 8);
                 b = (byte)(b ^ eventIndexMask);

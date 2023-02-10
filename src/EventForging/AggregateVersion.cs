@@ -2,14 +2,14 @@
 
 public readonly struct AggregateVersion
 {
-    private const int NotExistingAggregateValue = -1;
+    private const long NotExistingAggregateValue = -1;
 
-    private AggregateVersion(int value)
+    private AggregateVersion(long value)
     {
         Value = value;
     }
 
-    public int Value { get; }
+    public long Value { get; }
 
     public bool AggregateExists => this != NotExistingAggregate;
     public bool AggregateDoesNotExist => this == NotExistingAggregate;
@@ -30,14 +30,9 @@ public readonly struct AggregateVersion
     public static bool operator ==(AggregateVersion lhs, AggregateVersion rhs) => lhs.Value == rhs.Value;
     public static bool operator !=(AggregateVersion lhs, AggregateVersion rhs) => !(lhs == rhs);
 
-
-    public static implicit operator ulong(AggregateVersion ev) => (ulong)ev.Value;
-    public static implicit operator AggregateVersion(ulong ev) => (int)ev;
     public static implicit operator long(AggregateVersion ev) => ev.Value;
-    public static implicit operator AggregateVersion(long ev) => (int)ev;
-    public static implicit operator int(AggregateVersion ev) => ev.Value;
 
-    public static implicit operator AggregateVersion(int v)
+    public static implicit operator AggregateVersion(long v)
     {
         if (v < 0)
         {

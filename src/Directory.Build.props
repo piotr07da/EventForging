@@ -3,7 +3,7 @@
   <PropertyGroup>
 	<Product>EventForging</Product>
     <Copyright>Piotr Bejger</Copyright>
-    <Authors>piotr07da</Authors>
+    <Authors>Piotr Bejger</Authors>
     <Company>Piotr Bejger</Company>
 	<Description>EventForging is free, open-source .NET framework for event sourced applications.</Description>
     <RepositoryUrl>https://github.com/piotr07da/EventForging</RepositoryUrl>
