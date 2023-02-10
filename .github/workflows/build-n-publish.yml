@@ -11,7 +11,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
@@ -33,14 +34,14 @@ jobs:
         run: |
           echo "${EVENT_FORGING_VERSION}"
       - name: Package EventForging
-        run: dotnet pack EventForging.csproj --version-suffix ${EVENT_FORGING_VERSION}
+        run: dotnet pack EventForging.csproj /p:Version=${EVENT_FORGING_VERSION}
         working-directory: src/EventForging
       - name: Package EventForging.InMemory
-        run: dotnet pack EventForging.InMemory.csproj --version-suffix ${EVENT_FORGING_VERSION}
+        run: dotnet pack EventForging.InMemory.csproj /p:Version=${EVENT_FORGING_VERSION}
         working-directory: src/EventForging.InMemory
       - name: Package EventForging.CosmosDb
-        run: dotnet pack EventForging.CosmosDb.csproj --version-suffix ${EVENT_FORGING_VERSION}
+        run: dotnet pack EventForging.CosmosDb.csproj /p:Version=${EVENT_FORGING_VERSION}
         working-directory: src/EventForging.CosmosDb
       - name: Package EventForging.EventStore
-        run: dotnet pack EventForging.EventStore.csproj --version-suffix ${EVENT_FORGING_VERSION}
+        run: dotnet pack EventForging.EventStore.csproj /p:Version=${EVENT_FORGING_VERSION}
         working-directory: src/EventForging.EventStore
