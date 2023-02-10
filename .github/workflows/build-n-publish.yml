@@ -1,7 +1,6 @@
 name: Build and Publish Workflow
 env:
   EVENT_FORGING_VERSION: 1.0.2-alpha
-#run-name: ${{ github.actor }} is running GitHub Actions 🚀
 on:
   push:
     branches:
@@ -34,14 +33,16 @@ jobs:
         run: |
           echo "${EVENT_FORGING_VERSION}"
       - name: Package EventForging
-        run: dotnet pack EventForging.csproj /p:Version=${EVENT_FORGING_VERSION}
+        run: dotnet pack EventForging.csproj /p:Version=${EVENT_FORGING_VERSION} --output .
         working-directory: src/EventForging
       - name: Package EventForging.InMemory
-        run: dotnet pack EventForging.InMemory.csproj /p:Version=${EVENT_FORGING_VERSION}
+        run: dotnet pack EventForging.InMemory.csproj /p:Version=${EVENT_FORGING_VERSION} --output .
         working-directory: src/EventForging.InMemory
       - name: Package EventForging.CosmosDb
-        run: dotnet pack EventForging.CosmosDb.csproj /p:Version=${EVENT_FORGING_VERSION}
+        run: dotnet pack EventForging.CosmosDb.csproj /p:Version=${EVENT_FORGING_VERSION} --output .
         working-directory: src/EventForging.CosmosDb
       - name: Package EventForging.EventStore
-        run: dotnet pack EventForging.EventStore.csproj /p:Version=${EVENT_FORGING_VERSION}
+        run: dotnet pack EventForging.EventStore.csproj /p:Version=${EVENT_FORGING_VERSION} --output .
         working-directory: src/EventForging.EventStore
+      - name: Publish EventForging package
+        run: dotnet nuget push EventForging.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate

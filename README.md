@@ -10,7 +10,7 @@ EventForging is MIT licensed.
 - CosmosDb integration
 - EventStore integration
 - Opened for another databases
-- No inheritance hell! There are no base classes, you don't have to inherit from anything.
+- No inheritance hell. There are no base classes, you don't have to inherit from anything.
 
 ## Using EventForging
 ### Application Layer
