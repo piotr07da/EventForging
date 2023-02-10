@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace EventForging.EventStore;
+﻿namespace EventForging.EventStore;
 
 internal sealed class DefaultStreamNameFactory : IStreamNameFactory
 {

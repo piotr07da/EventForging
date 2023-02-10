@@ -1,20 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>netstandard2.0</TargetFramework>
-		<Copyright>Piotr Bejger</Copyright>
-		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
-		<Version>1.0.1-alpha</Version>
-		<Authors>piotr07da</Authors>
-		<Company>Piotr Bejger</Company>
-		<Description>EventForging.CosmosDb is CosmosDb implementation of EventForging - free, open-source .NET framework for event sourced applications.</Description>
-		<RepositoryUrl>https://github.com/piotr07da/EventForging</RepositoryUrl>
-		<PackageTags>event; events; event sourcing; event driven; event forging; event store; cosmosdb;</PackageTags>
-		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-	</PropertyGroup>
-
-	<PropertyGroup>
-		<Nullable>enable</Nullable>
+		<TargetFrameworks>netstandard2.0;netstandard2.1;net6.0;net7.0;</TargetFrameworks>
+		<Description>CosmosDb implementation of EventForging; $(Description)</Description>
+		<PackageTags>$(PackageTags); cosmosdb; cosmos;</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -1,16 +1,21 @@
 <Project>
-  <!-- These properties will be shared for all projects -->
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-	<LangVersion>latest</LangVersion>
+	<Product>EventForging</Product>
     <Copyright>Piotr Bejger</Copyright>
-    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <Authors>piotr07da</Authors>
     <Company>Piotr Bejger</Company>
+	<Description>EventForging is free, open-source .NET framework for event sourced applications.</Description>
     <RepositoryUrl>https://github.com/piotr07da/EventForging</RepositoryUrl>
-    <PackageTags>event; events; event sourcing; event driven; EventForging;</PackageTags>
+    <PackageTags>event; events; event sourcing; event driven;</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+	<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+	<Nullable>enable</Nullable>
+	<ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
 </Project>

@@ -1,0 +1,46 @@
+name: Build and Publish Workflow
+env:
+  EVENT_FORGING_VERSION: 1.0.2-alpha
+#run-name: ${{ github.actor }} is running GitHub Actions 🚀
+on:
+  push:
+    branches:
+      - 'master'
+        
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+      - name: Restore packages
+        run: dotnet restore
+      - name: Build
+        run: dotnet build -c Release --no-restore
+      - name: Test EventForging.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal
+        working-directory: tests/EventForging.Tests
+      - name: Test EventForging.CosmosDb.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal
+        working-directory: tests/EventForging.CosmosDb.Tests
+      - name: Test EventForging.EventStore.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal
+        working-directory: tests/EventForging.EventStore.Tests
+      - name: Show Version
+        run: |
+          echo "${EVENT_FORGING_VERSION}"
+      - name: Package EventForging
+        run: dotnet pack EventForging.csproj --version-suffix ${EVENT_FORGING_VERSION}
+        working-directory: src/EventForging
+      - name: Package EventForging.InMemory
+        run: dotnet pack EventForging.InMemory.csproj --version-suffix ${EVENT_FORGING_VERSION}
+        working-directory: src/EventForging.InMemory
+      - name: Package EventForging.CosmosDb
+        run: dotnet pack EventForging.CosmosDb.csproj --version-suffix ${EVENT_FORGING_VERSION}
+        working-directory: src/EventForging.CosmosDb
+      - name: Package EventForging.EventStore
+        run: dotnet pack EventForging.EventStore.csproj --version-suffix ${EVENT_FORGING_VERSION}
+        working-directory: src/EventForging.EventStore

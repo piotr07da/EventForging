@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using EventForging.DependencyInjection;
+﻿using EventForging.DependencyInjection;
 using EventForging.EventStore.Serialization;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
