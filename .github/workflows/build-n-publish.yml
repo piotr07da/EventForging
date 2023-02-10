@@ -38,12 +38,22 @@ jobs:
       - name: Package EventForging.InMemory
         run: dotnet pack EventForging.InMemory.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
         working-directory: src/EventForging.InMemory
-      - name: Package EventForging.CosmosDb
-        run: dotnet pack EventForging.CosmosDb.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
-        working-directory: src/EventForging.CosmosDb
       - name: Package EventForging.EventStore
         run: dotnet pack EventForging.EventStore.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
         working-directory: src/EventForging.EventStore
+      - name: Package EventForging.CosmosDb
+        run: dotnet pack EventForging.CosmosDb.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
+        working-directory: src/EventForging.CosmosDb
       - name: Publish EventForging package
         run: dotnet nuget push EventForging.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
         working-directory: pkg
+      - name: Publish EventForging.InMemory package
+        run: dotnet nuget push EventForging.InMemory.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
+      - name: Publish EventForging.EventStore package
+        run: dotnet nuget push EventForging.EventStore.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
+      - name: Publish EventForging.CosmosDb package
+        run: dotnet nuget push EventForging.CosmosDb.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
+      
