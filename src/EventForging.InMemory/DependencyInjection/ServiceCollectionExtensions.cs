@@ -1,13 +1,11 @@
-﻿using System;
-using System.Linq;
-using EventForging.DependencyInjection;
+﻿using EventForging.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EventForging.InMemory.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {
-    public static IEventForgingRegistrationConfiguration UseInMemory(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IEventForgingInMemoryConfiguration> configurator = null)
+    public static IEventForgingRegistrationConfiguration UseInMemory(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IEventForgingInMemoryConfiguration>? configurator = null)
     {
         var services = registrationConfiguration.Services;
 

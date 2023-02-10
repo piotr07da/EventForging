@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace EventForging;
+﻿namespace EventForging;
 
 public readonly struct ExpectedVersion
 {
@@ -21,7 +19,7 @@ public readonly struct ExpectedVersion
         return Value.ToString();
     }
 
-    public override bool Equals(object obj) => this == (ExpectedVersion)obj;
+    public override bool Equals(object? obj) => obj != null && this == (ExpectedVersion)obj;
 
     public override int GetHashCode() => Value.GetHashCode();
 

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Linq;
+﻿using System.Collections.Concurrent;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -40,7 +38,7 @@ internal sealed class AggregateProxyGenerator
                 return proxyTypeBuilder.CreateTypeInfo()!;
             })
         );
-        var aggregate = (TAggregate)Activator.CreateInstance(proxyType.Value);
+        var aggregate = Activator.CreateInstance(proxyType.Value) as TAggregate ?? throw new EventForgingException($"Cannot create instance of an aggregate for type {proxyType.Value.FullName}.");
         aggregate.SetAggregateMetadata(AggregateMetadata.Default());
         return aggregate;
     }

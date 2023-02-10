@@ -1,5 +1,4 @@
-﻿using System;
-using System.Reflection;
+﻿using System.Reflection;
 
 namespace EventForging;
 
@@ -19,7 +18,7 @@ internal static class AggregateMetadataExtensions
             return AggregateMetadata.Default();
         }
 
-        return (AggregateMetadata)f.GetValue(aggregate);
+        return f.GetValue(aggregate) as AggregateMetadata ?? throw new EventForgingException($"Aggregate metadata field '{AggregateMetadata.FieldName}' exists but its value is null or is not of '{nameof(AggregateMetadata)}' type.");
     }
 
     public static void SetAggregateMetadata(this object aggregate, AggregateMetadata metadata)
@@ -31,7 +30,7 @@ internal static class AggregateMetadataExtensions
     private static FieldInfo GetMetadataField(object aggregate)
     {
         var f = TryGetMetadataField(aggregate);
-        return f ?? throw new InvalidOperationException($"Aggregate metadata field {AggregateMetadata.FieldName} doesn't exist.");
+        return f ?? throw new EventForgingException($"Aggregate metadata field '{AggregateMetadata.FieldName}' doesn't exist.");
     }
 
     private static FieldInfo? TryGetMetadataField(object aggregate)

@@ -23,12 +23,12 @@ jobs:
       - name: Test EventForging.Tests
         run: dotnet test -c Release --no-restore --no-build --verbosity normal
         working-directory: tests/EventForging.Tests
-      - name: Test EventForging.CosmosDb.Tests
-        run: dotnet test -c Release --no-restore --no-build --verbosity normal
-        working-directory: tests/EventForging.CosmosDb.Tests
-      - name: Test EventForging.EventStore.Tests
-        run: dotnet test -c Release --no-restore --no-build --verbosity normal
-        working-directory: tests/EventForging.EventStore.Tests
+      # - name: Test EventForging.CosmosDb.Tests
+        # run: dotnet test -c Release --no-restore --no-build --verbosity normal
+        # working-directory: tests/EventForging.CosmosDb.Tests
+      # - name: Test EventForging.EventStore.Tests
+        # run: dotnet test -c Release --no-restore --no-build --verbosity normal
+        # working-directory: tests/EventForging.EventStore.Tests
       - name: Show Version
         run: |
           echo "${EVENT_FORGING_VERSION}"

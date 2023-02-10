@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
+﻿using System.Reflection;
 
 namespace EventForging;
 
@@ -10,6 +7,11 @@ internal static class EventApplierActionsExtractor
     public static IReadOnlyDictionary<Type, EventApplierAction> Extract(object extractionSource)
     {
         var extractionSourceType = extractionSource.GetType();
+        if (string.IsNullOrEmpty(extractionSourceType.Assembly.FullName))
+        {
+            throw new EventForgingException("Empty type name of event-applier-actions extraction-source.");
+        }
+
         if (extractionSourceType.Assembly.FullName.StartsWith(AggregateProxyGenerator.AggregateProxiesAssemblyName))
         {
             extractionSourceType = extractionSourceType.BaseType;

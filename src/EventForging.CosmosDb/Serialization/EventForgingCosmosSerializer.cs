@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -26,7 +23,7 @@ internal sealed class EventForgingCosmosSerializer : CosmosSerializer
         var sr = new StreamReader(stream);
         var json = sr.ReadToEnd();
         stream.Dispose();
-        var o = JsonSerializer.Deserialize<T>(json, JsonSerializerOptions);
+        var o = JsonSerializer.Deserialize<T>(json, JsonSerializerOptions)!;
 
         var eds = new List<EventDocument>();
 
@@ -48,7 +45,7 @@ internal sealed class EventForgingCosmosSerializer : CosmosSerializer
                     throw new EventForgingException($"Data and type of event retrieved from the database cannot null. StreamId is '{ed.StreamId}', Id is {ed.Id}.");
                 }
 
-                var eventDataAsString = ed.Data.ToString();
+                var eventDataAsString = ed.Data.ToString()!;
 
                 var eventData = _eventSerializer.DeserializeFromString(ed.EventType, eventDataAsString);
                 ed.Data = eventData;

@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace EventForging;
+﻿namespace EventForging;
 
 internal sealed class EventApplier
 {
-    private object _target;
-    private IReadOnlyDictionary<Type, EventApplierAction> _eventApplierActions;
+    private object? _target;
+    private IReadOnlyDictionary<Type, EventApplierAction>? _eventApplierActions;
 
     public int ApplyEvents(IEnumerable<object> events, bool throwIfApplyActionNotFound)
     {
@@ -22,6 +19,8 @@ internal sealed class EventApplier
 
     public void ApplyEvent(object @event, bool throwIfApplyActionNotFound)
     {
+        if (_target == null || _eventApplierActions == null) throw new EventForgingException($"Cannot apply event of type '{@event.GetType().FullName}' because target aggregate has not been registered.");
+
         var eventType = @event.GetType();
 
         if (!_eventApplierActions.TryGetValue(eventType, out var eventApplier))

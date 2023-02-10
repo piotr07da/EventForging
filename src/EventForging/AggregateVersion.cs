@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace EventForging;
+﻿namespace EventForging;
 
 public readonly struct AggregateVersion
 {
@@ -23,7 +21,7 @@ public readonly struct AggregateVersion
         return Value.ToString();
     }
 
-    public override bool Equals(object obj) => this == (AggregateVersion)obj;
+    public override bool Equals(object? obj) => obj != null && this == (AggregateVersion)obj;
 
     public override int GetHashCode() => Value.GetHashCode();
 
