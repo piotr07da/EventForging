@@ -7,10 +7,10 @@ EventForging is MIT licensed.
 ## Features
 
 - InMemory mode
-- CosmosDb integration
 - EventStore integration
+- CosmosDb integration
 - Opened for another databases
-- No inheritance hell. There are no base classes, you don't have to inherit from anything.
+- No inheritance hell - there are no base classes, you don't have to inherit from anything.
 
 ## Using EventForging
 ### Application Layer
@@ -21,8 +21,8 @@ To get and save an aggregate from and to the database we use the `IRepository<TA
     public async Task Consume(ConsumeContext<RegisterCustomer> context)
     {
         var command = context.Message;
-        var customer = Customer.RegisterNew(CustomerId.FromValue(command.CustomerId), CustomerName.FromValue(command.Name));
-        await _repository.SaveAsync(command.ComponentId, component, ExpectedVersion.None, context.ConversationId, context.InitiatorId, null);
+        var customer = Customer.Register(CustomerId.FromValue(command.CustomerId), CustomerName.FromValue(command.Name));
+        await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.None, context.ConversationId, context.InitiatorId);
     }
     
     public async Task Consume(ConsumeContext<RenameCustomer> context)
@@ -30,7 +30,7 @@ To get and save an aggregate from and to the database we use the `IRepository<TA
         var command = context.Message;
         var customer = await _repository.GetAsync(command.CustomerId);
         customer.Rename(CustomerName.FromValue(command.Name));
-        await _repository.SaveAsync(command.ComponentId, component, ExpectedVersion.Any, context.ConversationId, context.InitiatorId, null);
+        await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.Any, context.ConversationId, context.InitiatorId);
     }
 ```
 ### Domain Layer
@@ -49,7 +49,7 @@ public class Customer : IEventForged
 Lets add two methods - the first will be a factory method and the second will be a method for renaming a customer. For the simplicity of an example there is no additional logic - just applying the events.
 
 ```csharp
-    public static Customer RegisterNew(CustomerId id, CustomerName name)
+    public static Customer Register(CustomerId id, CustomerName name)
     {
         var customer = new Customer();
         var events = customer.Events;
