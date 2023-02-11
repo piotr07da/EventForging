@@ -23,37 +23,71 @@ jobs:
       - name: Test EventForging.Tests
         run: dotnet test -c Release --no-restore --no-build --verbosity normal
         working-directory: tests/EventForging.Tests
-      - name: Test EventForging.CosmosDb.Tests
-        run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration
-        working-directory: tests/EventForging.CosmosDb.Tests
       - name: Test EventForging.EventStore.Tests
         run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration
         working-directory: tests/EventForging.EventStore.Tests
+      - name: Test EventForging.CosmosDb.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration
+        working-directory: tests/EventForging.CosmosDb.Tests
+      
+  test-eventstore:
+    runs-on: ubuntu-latest
+    needs: build
+    services:
+      eventstore:
+        image: eventstore/eventstore:21.10.9-bionic
+        env:
+          EVENTSTORE_CLUSTER_SIZE: 1
+          EVENTSTORE_RUN_PROJECTIONS: All
+          EVENTSTORE_START_STANDARD_PROJECTIONS: True
+          EVENTSTORE_EXT_TCP_PORT: 1113
+          EVENTSTORE_INSECURE: true
+          EVENTSTORE_ENABLE_EXTERNAL_TCP: true
+          EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP: true
+        ports:
+        - "1113:1113"
+        - "2113:2113"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+      - name: Test EventForging.EventStore.Tests
+        run: dotnet test -c Release --verbosity normal --filter Category=Integration
+        working-directory: tests/EventForging.EventStore.Tests
+  publish:
+    runs-on: ubuntu-latest
+    needs:
+    - build
+    - test-eventstore
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
       - name: Show Version
-        run: |
-          echo "${EVENT_FORGING_VERSION}"
+        run: echo "${EVENT_FORGING_VERSION}"
       - name: Package EventForging
         run: dotnet pack EventForging.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
         working-directory: src/EventForging
+      - name: Publish EventForging
+        run: dotnet nuget push EventForging.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
       - name: Package EventForging.InMemory
         run: dotnet pack EventForging.InMemory.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
         working-directory: src/EventForging.InMemory
+      - name: Publish EventForging.InMemory
+        run: dotnet nuget push EventForging.InMemory.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
       - name: Package EventForging.EventStore
         run: dotnet pack EventForging.EventStore.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
         working-directory: src/EventForging.EventStore
+      - name: Publish EventForging.EventStore
+        run: dotnet nuget push EventForging.EventStore.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
       - name: Package EventForging.CosmosDb
         run: dotnet pack EventForging.CosmosDb.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
         working-directory: src/EventForging.CosmosDb
-      - name: Publish EventForging package
-        run: dotnet nuget push EventForging.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-        working-directory: pkg
-      - name: Publish EventForging.InMemory package
-        run: dotnet nuget push EventForging.InMemory.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-        working-directory: pkg
-      - name: Publish EventForging.EventStore package
-        run: dotnet nuget push EventForging.EventStore.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-        working-directory: pkg
-      - name: Publish EventForging.CosmosDb package
+      - name: Publish EventForging.CosmosDb
         run: dotnet nuget push EventForging.CosmosDb.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
         working-directory: pkg
-      

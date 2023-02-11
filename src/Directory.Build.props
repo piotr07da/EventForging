@@ -7,7 +7,7 @@
     <Company>Piotr Bejger</Company>
 	<Description>EventForging is free, open-source .NET framework for event sourced applications.</Description>
     <RepositoryUrl>https://github.com/piotr07da/EventForging</RepositoryUrl>
-    <PackageTags>event; events; eventsourcing; eventdriven;</PackageTags>
+    <PackageTags>EventForging; event; events; eventsourcing; eventdriven;</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
 	<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
