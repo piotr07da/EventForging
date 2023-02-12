@@ -1,4 +1,9 @@
-﻿namespace EventForging;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace EventForging;
 
 internal sealed class Repository<TAggregate> : IRepository<TAggregate>
     where TAggregate : class, IEventForged
@@ -10,16 +15,16 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         _database = database ?? throw new ArgumentNullException(nameof(database));
     }
 
-    public async Task<TAggregate> GetAsync(Guid aggregateId, CancellationToken cancellationToken = default)
+    public async Task<TAggregate> GetAsync(Guid aggregateId)
     {
-        return await GetAsync(aggregateId.ToString(), cancellationToken).ConfigureAwait(false);
+        return await GetAsync(aggregateId.ToString()).ConfigureAwait(false);
     }
 
-    public async Task<TAggregate> GetAsync(string aggregateId, CancellationToken cancellationToken = default)
+    public async Task<TAggregate> GetAsync(string aggregateId)
     {
         var aggregate = AggregateProxyGenerator.Create<TAggregate>();
         var callback = new AggregateRehydrationEventDatabaseReadCallback(aggregate);
-        await _database.ReadAsync<TAggregate>(aggregateId, callback, cancellationToken).ConfigureAwait(false);
+        await _database.ReadAsync<TAggregate>(aggregateId, callback).ConfigureAwait(false);
         var rehydrated = callback.Rehydrated;
         if (!rehydrated)
         {
@@ -29,12 +34,12 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         return aggregate;
     }
 
-    public async Task SaveAsync(Guid aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(Guid aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties)
     {
-        await SaveAsync(aggregateId.ToString(), aggregate, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
+        await SaveAsync(aggregateId.ToString(), aggregate, expectedVersion, conversationId, initiatorId, customProperties).ConfigureAwait(false);
     }
 
-    public async Task SaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties)
     {
         var aggregateMetadata = aggregate.GetAggregateMetadata();
         var lastReadAggregateVersion = aggregateMetadata.ReadVersion;
@@ -52,6 +57,6 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         var newEvents = aggregate.Events.Get().ToArray();
         customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
         customProperties ??= new Dictionary<string, string>();
-        await _database.WriteAsync<TAggregate>(aggregateId, newEvents, lastReadAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
+        await _database.WriteAsync<TAggregate>(aggregateId, newEvents, lastReadAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties).ConfigureAwait(false);
     }
 }
