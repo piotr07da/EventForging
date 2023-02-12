@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
-using EventForging.CosmosDb.Serialization;
+﻿using EventForging.CosmosDb.Serialization;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 
@@ -25,7 +21,7 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
     }
 
-    public async Task InitializeAsync()
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         var clientOptions = new CosmosClientOptions
         {
@@ -48,13 +44,13 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
 
             if (!_databases.TryGetValue(locationConfiguration.DatabaseName, out var database))
             {
-                database = await _client.CreateDatabaseIfNotExistsAsync(locationConfiguration.DatabaseName);
+                database = await _client.CreateDatabaseIfNotExistsAsync(locationConfiguration.DatabaseName, cancellationToken: cancellationToken);
                 _databases.Add(locationConfiguration.DatabaseName, database);
             }
 
             if (!_containers.TryGetValue(locationConfiguration.ContainerName, out var container))
             {
-                container = await database.CreateContainerIfNotExistsAsync(locationConfiguration.ContainerName, "/streamId");
+                container = await database.CreateContainerIfNotExistsAsync(locationConfiguration.ContainerName, "/streamId", cancellationToken: cancellationToken);
                 _containers.Add(locationConfiguration.ContainerName, container);
             }
 
@@ -62,7 +58,7 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         }
     }
 
-    public async Task DisposeAsync()
+    public async Task DisposeAsync(CancellationToken cancellationToken = default)
     {
         _client?.Dispose();
         _databases.Clear();

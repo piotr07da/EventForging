@@ -1,7 +1,4 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 
 namespace EventForging.CosmosDb.DependencyInjection;
 
@@ -20,13 +17,13 @@ internal sealed class EventForgingCosmosDbHostedService : IHostedService, IAsync
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        await _cosmosDbProvider.InitializeAsync();
+        await _cosmosDbProvider.InitializeAsync(cancellationToken);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _stopRequested = true;
-        await _cosmosDbProvider.DisposeAsync();
+        await _cosmosDbProvider.DisposeAsync(cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
