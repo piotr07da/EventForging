@@ -1,6 +1,6 @@
 name: Build and Publish Workflow
 env:
-  EVENT_FORGING_VERSION: 1.0.2-alpha
+  EVENT_FORGING_VERSION: 1.0.3-alpha
 on:
   push:
     branches:
