@@ -4,7 +4,11 @@ env:
 on:
   push:
     branches:
-      - 'master'
+    - 'master'
+    paths:
+    - 'src/**'
+    - 'tests/**'
+    - 'EventForging.sln'
 jobs:
   build:
     runs-on: ubuntu-latest

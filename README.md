@@ -92,3 +92,9 @@ To enable and configure EventForging we need to use `AddEventForging(...)` exten
 
 ```
 
+## Idempotency
+The idempotency is ensured for the initiator identifier, which is typically the command identifier. Therefore, if the idempotency is needed, providing the initiator identifier is required when saving the aggregate to the database.
+
+### How it works
+When the initiator identifier is passed and it is non-empty GUID, its value is used as a seed to generate consecutive event identifiers in a deterministic way. An event with a given identifier can be saved to the database only once. The first attempt to save an event with a given identifier will result in the event being saved to the database, and all subsequent attempts will be skipped.
+
