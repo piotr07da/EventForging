@@ -18,13 +18,24 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
     public async Task<TAggregate> GetAsync(string aggregateId, CancellationToken cancellationToken = default)
     {
         var aggregate = AggregateProxyGenerator.Create<TAggregate>();
-        var callback = new AggregateRehydrationEventDatabaseReadCallback(aggregate);
-        await _database.ReadAsync<TAggregate>(aggregateId, callback, cancellationToken).ConfigureAwait(false);
-        var rehydrated = callback.Rehydrated;
-        if (!rehydrated)
+        var eventApplier = EventApplier.CreateFor(aggregate);
+
+        var events = _database.ReadAsync<TAggregate>(aggregateId, cancellationToken).ConfigureAwait(false);
+
+        var eventCount = 0;
+
+        await foreach (var e in events)
         {
-            throw new Exception($"{typeof(TAggregate).Name} with id {aggregateId} not found.");
+            eventApplier.ApplyEvent(e, false);
+            ++eventCount;
         }
+
+        if (eventCount == 0)
+        {
+            throw new Exception($"No events found for an aggregate {typeof(TAggregate).Name} with id '{aggregateId}'.");
+        }
+
+        aggregate.ConfigureAggregateMetadata(md => md.ReadVersion = eventCount - 1);
 
         return aggregate;
     }

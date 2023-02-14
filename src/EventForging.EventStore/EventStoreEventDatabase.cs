@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using EventForging.Idempotency;
 using EventForging.Serialization;
@@ -30,17 +31,14 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
 
     private JsonSerializerOptions JsonSerializerOptions => _serializerOptionsProvider.Get();
 
-    public async Task ReadAsync<TAggregate>(string aggregateId, IEventDatabaseReadCallback callback, CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
-        callback.OnBegin();
         await foreach (var re in _client.ReadStreamAsync(Direction.Forwards, streamName, StreamPosition.Start, cancellationToken: cancellationToken))
         {
             var ed = _eventSerializer.DeserializeFromBytes(re.Event.EventType, re.Event.Data.ToArray());
-            callback.OnRead(ed);
+            yield return ed;
         }
-
-        callback.OnEnd();
     }
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)

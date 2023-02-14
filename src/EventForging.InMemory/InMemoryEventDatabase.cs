@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace EventForging.InMemory;
 
@@ -11,17 +7,19 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 {
     private readonly ConcurrentDictionary<string, object[]> _streams = new();
 
-    public Task ReadAsync<TAggregate>(string aggregateId, IEventDatabaseReadCallback callback, CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        callback.OnBegin();
         _streams.TryGetValue(aggregateId, out var events);
         events = events ?? Array.Empty<object>();
-        callback.OnRead(events);
-        callback.OnEnd();
-        return Task.CompletedTask;
+        foreach (var e in events)
+        {
+            yield return e;
+        }
+
+        await Task.CompletedTask;
     }
 
-    public Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
         _streams.TryGetValue(aggregateId, out var currentEvents);
         currentEvents ??= Array.Empty<object>();
@@ -36,6 +34,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
         var allEvents = currentEvents.ToList();
         allEvents.AddRange(events);
         _streams[aggregateId] = allEvents.ToArray();
-        return Task.CompletedTask;
+
+        await Task.CompletedTask;
     }
 }

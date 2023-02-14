@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Runtime.CompilerServices;
 using EventForging.Idempotency;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -25,7 +26,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         _logger = loggerFactory.CreateEventForgingLogger();
     }
 
-    public async Task ReadAsync<TAggregate>(string aggregateId, IEventDatabaseReadCallback callback, CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
 
@@ -33,17 +34,16 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         var iterator = GetContainer<TAggregate>().GetItemQueryIterator<EventDocument>($"SELECT * FROM x WHERE x.documentType = '{nameof(DocumentType.Event)}' ORDER BY x.eventNumber", requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
 
-        callback.OnBegin();
-
         while (iterator.HasMoreResults)
         {
             var page = await iterator.ReadNextAsync(cancellationToken);
 
             var events = page.Select(ed => ed.Data ?? throw new EventForgingException($"Event {ed.Id ?? "NULL"} has no data.")).ToArray();
-            callback.OnRead(events);
+            foreach (var e in events)
+            {
+                yield return e;
+            }
         }
-
-        callback.OnEnd();
     }
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)

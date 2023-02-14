@@ -168,8 +168,13 @@ public sealed class EventDatabaseTestFixture
 
     private async Task<object[]> GetEventsAsync(Guid userId)
     {
-        var callback = new EventDatabaseReadCallback();
-        await _eventDatabase.ReadAsync<User>(userId.ToString(), callback);
-        return callback.Events.ToArray();
+        var eventsAsyncEnumerable = _eventDatabase.ReadAsync<User>(userId.ToString());
+        var events = new List<object>();
+        await foreach (var e in eventsAsyncEnumerable)
+        {
+            events.Add(e);
+        }
+
+        return events.ToArray();
     }
 }
