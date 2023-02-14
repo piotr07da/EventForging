@@ -4,6 +4,9 @@ EventForging is a free, open-source .NET framework for event sourced application
 
 EventForging is MIT licensed.
 
+## Status
+[![build](https://github.com/piotr07da/EventForging/actions/workflows/build-n-publish.yml/badge.svg)](https://github.com/piotr07da/EventForging/actions/workflows/build-n-publish.yml)
+
 ## Features
 
 - InMemory mode
