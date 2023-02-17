@@ -1,4 +1,6 @@
 ﻿using EventForging.DependencyInjection;
+using EventForging.InMemory.Serialization;
+using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EventForging.InMemory.DependencyInjection;
@@ -20,7 +22,17 @@ public static class ServiceCollectionExtensions
         configurator(configuration);
         services.AddSingleton<IEventForgingInMemoryConfiguration>(configuration);
 
-        services.AddTransient<IEventDatabase, InMemoryEventDatabase>();
+        if (configuration.SerializationEnabled)
+        {
+            services.AddSingleton<IEventSerializer, JsonEventSerializer>();
+            services.AddSingleton<IJsonSerializerOptionsProvider, InMemoryJsonSerializerOptionsProvider>();
+        }
+        else
+        {
+            services.AddSingleton<IEventSerializer, DummyEventSerializer>();
+        }
+
+        services.AddSingleton<IEventDatabase, InMemoryEventDatabase>();
 
         return registrationConfiguration;
     }

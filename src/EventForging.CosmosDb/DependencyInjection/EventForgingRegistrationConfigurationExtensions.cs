@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using EventForging.CosmosDb.Serialization;
+﻿using EventForging.CosmosDb.Serialization;
 using EventForging.DependencyInjection;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +21,9 @@ public static class EventForgingRegistrationConfigurationExtensions
         configurator(configuration);
         ValidateConfiguration(configuration);
         services.AddSingleton<IEventForgingCosmosDbConfiguration>(configuration);
+
         services.AddSingleton<ICosmosDbProvider, CosmosDbProvider>();
+        services.AddSingleton<IEventSerializer, JsonEventSerializer>();
         services.AddSingleton<IJsonSerializerOptionsProvider, CosmosJsonSerializerOptionsProvider>();
         services.AddSingleton<IStreamNameFactory, DefaultStreamNameFactory>();
 

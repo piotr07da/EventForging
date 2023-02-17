@@ -12,9 +12,11 @@ public static class ServiceProviderFactory
 
         serviceCollection.AddEventForging(c =>
         {
+            c.Configuration.IdempotencyEnabled = false;
+
             c.UseInMemory(imConfigurator =>
             {
-                imConfigurator.SerializationEnabled = true;
+                imConfigurator.SerializationEnabled = false;
             });
         });
 

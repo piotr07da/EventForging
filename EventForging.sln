@@ -42,6 +42,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "githubworkflows", "githubwo
 		.github\workflows\build-n-publish.yml = .github\workflows\build-n-publish.yml
 	EndProjectSection
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.InMemory.Tests", "tests\EventForging.InMemory.Tests\EventForging.InMemory.Tests.csproj", "{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -84,6 +86,10 @@ Global
 		{517059A0-D3DB-49F8-AB4B-0122003F7184}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{517059A0-D3DB-49F8-AB4B-0122003F7184}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{517059A0-D3DB-49F8-AB4B-0122003F7184}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

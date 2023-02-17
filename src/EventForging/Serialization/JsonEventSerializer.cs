@@ -1,11 +1,12 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 
 namespace EventForging.Serialization;
 
-internal sealed class JsonEventSerializer : IEventSerializer
+public sealed class JsonEventSerializer : IEventSerializer
 {
+    private const string CheckSetEventTypeNameMappersErrorMessage = "Check if proper event type name mappers were registered using SetEventTypeNameMappers(...) method while registering EventForging using AddEventForging(c => ...).";
+
     private readonly IEventForgingSerializationConfiguration _serializationConfiguration;
     private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
 
@@ -67,7 +68,7 @@ internal sealed class JsonEventSerializer : IEventSerializer
             }
         }
 
-        throw new EventForgingException($"Event type name not found for event of CLR type '{eventType.FullName}'.");
+        throw new EventForgingException($"Event type name not found for event of type '{eventType.FullName}'. {CheckSetEventTypeNameMappersErrorMessage}");
     }
 
     private Type TryGetEventType(string eventName)
@@ -82,6 +83,6 @@ internal sealed class JsonEventSerializer : IEventSerializer
             }
         }
 
-        throw new EventForgingException($"Event CLR type not found for event '{eventName}'.");
+        throw new EventForgingException($"Event type not found for event '{eventName}'. {CheckSetEventTypeNameMappersErrorMessage}");
     }
 }

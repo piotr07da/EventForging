@@ -23,7 +23,7 @@ public class given_aggregate_in_database : IAsyncLifetime
         a.BrewTextBeer("EventForging @#!$@#%!@#%!@#$ 124239");
         a.BrewTimestampBeer(DateTime.UtcNow);
 
-        await _repository.SaveAsync(_aggregateId, a, ExpectedVersion.None, Guid.Empty, Guid.Empty, null);
+        await _repository.SaveAsync(_aggregateId, a, ExpectedVersion.None, Guid.Empty, Guid.Empty);
     }
 
     public Task DisposeAsync()
@@ -40,10 +40,10 @@ public class given_aggregate_in_database : IAsyncLifetime
 
         var ex = await Assert.ThrowsAnyAsync<EventForgingUnexpectedVersionException>(async () =>
         {
-            await _repository.SaveAsync(_aggregateId, a, ExpectedVersion.None, Guid.Empty, Guid.Empty, null);
+            await _repository.SaveAsync(_aggregateId, a, ExpectedVersion.None, Guid.Empty, Guid.Empty);
         });
         Assert.Equal(ExpectedVersion.None, ex.ExpectedVersion);
-        Assert.Equal((AggregateVersion)2, ex.LastReadVersion);
+        Assert.Equal(2, ex.LastReadVersion);
         Assert.Null(ex.ActualVersion);
     }
 
@@ -56,10 +56,10 @@ public class given_aggregate_in_database : IAsyncLifetime
 
         var ex = await Assert.ThrowsAnyAsync<EventForgingUnexpectedVersionException>(async () =>
         {
-            await _repository.SaveAsync(_aggregateId, a, 15, Guid.Empty, Guid.Empty, null);
+            await _repository.SaveAsync(_aggregateId, a, 15, Guid.Empty, Guid.Empty);
         });
-        Assert.Equal((ExpectedVersion)15, ex.ExpectedVersion);
-        Assert.Equal((AggregateVersion)2, ex.LastReadVersion);
+        Assert.Equal(15, ex.ExpectedVersion);
+        Assert.Equal(2, ex.LastReadVersion);
         Assert.Null(ex.ActualVersion);
     }
 
@@ -72,14 +72,14 @@ public class given_aggregate_in_database : IAsyncLifetime
         a1.BrewNumberBeer(999);
         a2.BrewNumberBeer(-100);
 
-        await _repository.SaveAsync(_aggregateId, a1, ExpectedVersion.Any, Guid.Empty, Guid.Empty, null);
+        await _repository.SaveAsync(_aggregateId, a1, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
 
         var ex = await Assert.ThrowsAnyAsync<EventForgingUnexpectedVersionException>(async () =>
         {
-            await _repository.SaveAsync(_aggregateId, a2, ExpectedVersion.Any, Guid.Empty, Guid.Empty, null);
+            await _repository.SaveAsync(_aggregateId, a2, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
         });
         Assert.Equal(ExpectedVersion.Any, ex.ExpectedVersion);
-        Assert.Equal((AggregateVersion)2, ex.LastReadVersion);
+        Assert.Equal(2, ex.LastReadVersion);
         Assert.Equal((AggregateVersion)3, ex.ActualVersion);
     }
 
@@ -92,14 +92,14 @@ public class given_aggregate_in_database : IAsyncLifetime
         a1.BrewNumberBeer(999);
         a2.BrewNumberBeer(-100);
 
-        await _repository.SaveAsync(_aggregateId, a1, 2, Guid.Empty, Guid.Empty, null);
+        await _repository.SaveAsync(_aggregateId, a1, 2, Guid.Empty, Guid.Empty);
 
         var ex = await Assert.ThrowsAnyAsync<EventForgingUnexpectedVersionException>(async () =>
         {
-            await _repository.SaveAsync(_aggregateId, a2, 2, Guid.Empty, Guid.Empty, null);
+            await _repository.SaveAsync(_aggregateId, a2, 2, Guid.Empty, Guid.Empty);
         });
-        Assert.Equal((ExpectedVersion)2, ex.ExpectedVersion);
-        Assert.Equal((AggregateVersion)2, ex.LastReadVersion);
+        Assert.Equal(2, ex.ExpectedVersion);
+        Assert.Equal(2, ex.LastReadVersion);
         Assert.Equal((AggregateVersion)3, ex.ActualVersion);
     }
 }

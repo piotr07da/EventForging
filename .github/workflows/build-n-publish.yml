@@ -1,6 +1,6 @@
 name: EventForging
 env:
-  EVENT_FORGING_VERSION: 1.0.4-alpha
+  EVENT_FORGING_VERSION: 1.0.5-alpha
 on:
   push:
     branches:
@@ -26,6 +26,9 @@ jobs:
     - name: Test EventForging.Tests
       run: dotnet test -c Release --no-restore --no-build --verbosity normal
       working-directory: tests/EventForging.Tests
+    - name: Test EventForging.InMemory.Tests
+      run: dotnet test -c Release --no-restore --no-build --verbosity normal
+      working-directory: tests/EventForging.InMemory
     - name: Test EventForging.EventStore.Tests
       run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration
       working-directory: tests/EventForging.EventStore.Tests
