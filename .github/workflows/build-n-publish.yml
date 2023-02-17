@@ -2,6 +2,7 @@ name: EventForging
 env:
   EVENT_FORGING_VERSION: 1.0.5-alpha
 on:
+  workflow_dispatch:
   push:
     branches:
     - 'master'
