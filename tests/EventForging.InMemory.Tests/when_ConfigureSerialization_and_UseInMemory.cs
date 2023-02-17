@@ -22,6 +22,14 @@ public class when_ConfigureSerialization_and_UseCosmosDb
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
+    public async Task when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated(bool serializationEnabled)
+    {
+        await Fixture(serializationEnabled).when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
     public async Task when_existing_aggregate_saved_then_read_aggregate_rehydrated(bool serializationEnabled)
     {
         await Fixture(serializationEnabled).when_existing_aggregate_saved_then_read_aggregate_rehydrated();

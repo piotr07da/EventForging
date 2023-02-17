@@ -75,6 +75,12 @@ public class when_ConfigureSerialization_and_UseCosmosDb : IAsyncLifetime
     }
 
     [Fact]
+    public async Task when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated()
+    {
+        await _fixture.when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated();
+    }
+
+    [Fact]
     public async Task when_existing_aggregate_saved_then_read_aggregate_rehydrated()
     {
         await _fixture.when_existing_aggregate_saved_then_read_aggregate_rehydrated();

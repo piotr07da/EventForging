@@ -17,7 +17,7 @@ public static class IdempotentEventIdGenerator
             b = (byte)(b ^ 0b11010100);
             if (i < 8) // eventIndex is of type int so there are 8 bytes
             {
-                var eventIndexMask = (byte)(eventIndex >> 8);
+                var eventIndexMask = (byte)(eventIndex >> (i * 8));
                 b = (byte)(b ^ eventIndexMask);
             }
 

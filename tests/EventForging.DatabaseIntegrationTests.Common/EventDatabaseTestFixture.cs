@@ -29,6 +29,21 @@ public sealed class EventDatabaseTestFixture
         Assert.Equal(userId, userAfterSave.Id);
     }
 
+    public async Task when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated([CallerMemberName] string callerMethod = "")
+    {
+        Assert.Equal(nameof(when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated), callerMethod);
+
+        var userId = Guid.NewGuid();
+        var userName = Guid.NewGuid().ToString();
+
+        var newUser = User.RegisterWithName(userId, userName);
+        await _repository.SaveAsync(userId, newUser, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid());
+        var userAfterSave = await _repository.GetAsync(userId);
+
+        Assert.Equal(userId, userAfterSave.Id);
+        Assert.Equal(userName, userAfterSave.Name);
+    }
+
     public async Task when_existing_aggregate_saved_then_read_aggregate_rehydrated([CallerMemberName] string callerMethod = "")
     {
         Assert.Equal(nameof(when_existing_aggregate_saved_then_read_aggregate_rehydrated), callerMethod);

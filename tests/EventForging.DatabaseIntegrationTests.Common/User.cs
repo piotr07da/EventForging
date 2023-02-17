@@ -10,6 +10,7 @@ public class User : IEventForged
     public Events Events { get; }
 
     public Guid Id { get; private set; }
+    public string Name { get; private set; }
     public bool Approved { get; private set; }
 
     public static User Register(Guid id)
@@ -17,6 +18,15 @@ public class User : IEventForged
         var order = new User();
         var events = order.Events;
         events.Apply(new UserRegistered(id));
+        return order;
+    }
+
+    public static User RegisterWithName(Guid id, string name)
+    {
+        var order = new User();
+        var events = order.Events;
+        events.Apply(new UserRegistered(id));
+        events.Apply(new UserNamed(id, name));
         return order;
     }
 
@@ -30,6 +40,11 @@ public class User : IEventForged
         Id = e.UserId;
     }
 
+    private void Apply(UserNamed e)
+    {
+        Name = e.Name;
+    }
+
     private void Apply(UserApproved e)
     {
         Approved = true;
@@ -37,5 +52,7 @@ public class User : IEventForged
 }
 
 public sealed record UserRegistered(Guid UserId);
+
+public sealed record UserNamed(Guid UserId, string Name);
 
 public sealed record UserApproved(Guid UserId);
