@@ -28,7 +28,7 @@ jobs:
       working-directory: tests/EventForging.Tests
     - name: Test EventForging.InMemory.Tests
       run: dotnet test -c Release --no-restore --no-build --verbosity normal
-      working-directory: tests/EventForging.InMemory
+      working-directory: tests/EventForging.InMemory.Tests
     - name: Test EventForging.EventStore.Tests
       run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration
       working-directory: tests/EventForging.EventStore.Tests

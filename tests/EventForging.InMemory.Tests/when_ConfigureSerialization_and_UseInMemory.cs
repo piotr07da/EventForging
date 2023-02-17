@@ -9,7 +9,6 @@ using Xunit;
 
 namespace EventForging.InMemory.Tests;
 
-[Trait("Category", "Integration")]
 public class when_ConfigureSerialization_and_UseCosmosDb
 {
     [Theory]
