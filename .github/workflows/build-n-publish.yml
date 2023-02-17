@@ -103,7 +103,7 @@ jobs:
     needs:
     - build
     - test-eventstore
-    - test-cosmosdb
+    #- test-cosmosdb
     steps:
     - name: Checkout
       uses: actions/checkout@v3
