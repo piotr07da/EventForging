@@ -2,4 +2,4 @@
 
 namespace EventForging.InMemory;
 
-internal sealed record EventEntry(Guid Id, long Version, string Type, object Data, EventMetadata Metadata);
+internal sealed record EventEntry(Guid Id, long Version, string Type, DateTime Timestamp, object Data, EventMetadata Metadata);

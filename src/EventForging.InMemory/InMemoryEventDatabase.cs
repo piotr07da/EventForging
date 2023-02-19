@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using EventForging.EventsHandling;
 using EventForging.Idempotency;
 using EventForging.Serialization;
 
@@ -11,18 +12,20 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
     private readonly IEventSerializer _serializer;
     private readonly IEventForgingConfiguration _configuration;
     private readonly IEventForgingInMemoryConfiguration _inMemoryConfiguration;
+    private readonly IEventDispatcher _eventDispatcher;
 
-    public InMemoryEventDatabase(IEventSerializer serializer, IEventForgingConfiguration configuration, IEventForgingInMemoryConfiguration inMemoryConfiguration)
+    public InMemoryEventDatabase(IEventSerializer serializer, IEventForgingConfiguration configuration, IEventForgingInMemoryConfiguration inMemoryConfiguration, IEventDispatcher eventDispatcher)
     {
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _inMemoryConfiguration = inMemoryConfiguration ?? throw new ArgumentNullException(nameof(inMemoryConfiguration));
+        _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));
     }
 
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         _streams.TryGetValue(aggregateId, out var eventEntries);
-        eventEntries = eventEntries ?? new Dictionary<Guid, EventEntry>();
+        eventEntries ??= new Dictionary<Guid, EventEntry>();
         foreach (var entry in eventEntries.Values.OrderBy(e => e.Version))
         {
             object eData;
@@ -74,7 +77,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
                 eventType = e.GetType().FullName!;
             }
 
-            var entry = new EventEntry(eventId, actualVersion + eIx + 1, eventType, eData, new EventMetadata(conversationId, initiatorId));
+            var entry = new EventEntry(eventId, actualVersion + eIx + 1, eventType, DateTime.UtcNow, eData, new EventMetadata(conversationId, initiatorId));
 
             newEventEntries.Add(entry);
         }
@@ -108,6 +111,29 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
         _streams[aggregateId] = allEventEntries;
 
+        await PublishEventsAsync(newEventEntries, cancellationToken);
+
         await Task.CompletedTask;
+    }
+
+    private async Task PublishEventsAsync(IEnumerable<EventEntry> eventEntries, CancellationToken cancellationToken)
+    {
+        foreach (var entry in eventEntries)
+        {
+            foreach (var subscription in _inMemoryConfiguration.EventSubscriptions)
+            {
+                object eData;
+                if (_inMemoryConfiguration.SerializationEnabled)
+                {
+                    eData = _serializer.DeserializeFromBytes(entry.Type, (entry.Data as byte[])!);
+                }
+                else
+                {
+                    eData = entry.Data;
+                }
+
+                await _eventDispatcher.DispatchAsync(subscription, eData, new EventInfo(entry.Id, entry.Version, entry.Type, entry.Metadata.ConversationId, entry.Metadata.InitiatorId, entry.Timestamp, entry.Metadata.CustomProperties), cancellationToken);
+            }
+        }
     }
 }

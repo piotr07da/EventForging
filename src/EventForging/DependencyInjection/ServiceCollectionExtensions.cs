@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using EventForging.EventsHandling;
+using Microsoft.Extensions.DependencyInjection;
 
 // ReSharper disable once CheckNamespace
 namespace EventForging;
@@ -19,6 +20,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(typeof(IEventForgingConfiguration), configuration);
         services.AddSingleton(typeof(IEventForgingSerializationConfiguration), configuration.Serialization);
         services.AddTransient(typeof(IRepository<>), typeof(Repository<>));
+
+        services.AddSingleton<IEventDispatcher, EventDispatcher>();
 
         return services;
     }

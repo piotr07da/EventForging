@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using EventForging.EventsHandling;
 using Microsoft.Extensions.DependencyInjection;
 
 // ReSharper disable once CheckNamespace
@@ -23,6 +24,15 @@ internal sealed class EventForgingRegistrationConfiguration : IEventForgingRegis
 
     public void AddEventHandlers(Assembly assembly)
     {
-        throw new NotImplementedException();
+        var eventHandlerType = typeof(IEventHandler);
+        var genericEventHandlerType = typeof(IEventHandler<>);
+        var ehTypes = assembly.GetTypes().Where(t => t.IsClass && eventHandlerType.IsAssignableFrom(t));
+        foreach (var ehType in ehTypes)
+        {
+            foreach (var ehService in ehType.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == genericEventHandlerType))
+            {
+                Services.AddSingleton(ehService, ehType);
+            }
+        }
     }
 }
