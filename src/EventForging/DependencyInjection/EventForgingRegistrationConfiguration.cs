@@ -1,7 +1,8 @@
-﻿using System;
+﻿using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EventForging.DependencyInjection;
+// ReSharper disable once CheckNamespace
+namespace EventForging;
 
 internal sealed class EventForgingRegistrationConfiguration : IEventForgingRegistrationConfiguration
 {
@@ -12,5 +13,16 @@ internal sealed class EventForgingRegistrationConfiguration : IEventForgingRegis
     }
 
     public IServiceCollection Services { get; }
+
     public IEventForgingConfiguration Configuration { get; }
+
+    public void ConfigureEventForging(Action<IEventForgingConfiguration> configure)
+    {
+        configure(Configuration);
+    }
+
+    public void AddEventHandlers(Assembly assembly)
+    {
+        throw new NotImplementedException();
+    }
 }

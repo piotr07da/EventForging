@@ -1,9 +1,9 @@
-﻿using EventForging.DependencyInjection;
-using EventForging.EventStore.Serialization;
+﻿using EventForging.EventStore.Serialization;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EventForging.EventStore.DependencyInjection;
+// ReSharper disable once CheckNamespace
+namespace EventForging.EventStore;
 
 public static class EventForgingRegistrationConfigurationExtensions
 {

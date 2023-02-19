@@ -1,8 +1,6 @@
 ﻿// ReSharper disable InconsistentNaming
 
 using EventForging.DatabaseIntegrationTests.Common;
-using EventForging.DependencyInjection;
-using EventForging.InMemory.DependencyInjection;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -89,7 +87,10 @@ public class when_ConfigureSerialization_and_UseCosmosDb
         var assembly = typeof(User).Assembly;
         services.AddEventForging(r =>
         {
-            r.Configuration.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+            r.ConfigureEventForging(c =>
+            {
+                c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+            });
             r.UseInMemory(c =>
             {
                 c.SerializationEnabled = serializationEnabled;

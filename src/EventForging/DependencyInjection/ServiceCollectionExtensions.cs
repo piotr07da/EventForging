@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace EventForging.DependencyInjection;
+// ReSharper disable once CheckNamespace
+namespace EventForging;
 
 public static class ServiceCollectionExtensions
 {

@@ -1,8 +1,6 @@
 ﻿// ReSharper disable InconsistentNaming
 
-using EventForging.CosmosDb.DependencyInjection;
 using EventForging.DatabaseIntegrationTests.Common;
-using EventForging.DependencyInjection;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +11,7 @@ using User = EventForging.DatabaseIntegrationTests.Common.User;
 namespace EventForging.CosmosDb.Tests;
 
 [Trait("Category", "Integration")]
-public class when_ConfigureSerialization_and_UseCosmosDb : IAsyncLifetime
+public class CosmosDbEventDatabase_tests : IAsyncLifetime
 {
     private const string ConnectionString = "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
     private const string DatabaseName = "TestModule";
@@ -24,13 +22,16 @@ public class when_ConfigureSerialization_and_UseCosmosDb : IAsyncLifetime
 
     private readonly EventDatabaseTestFixture _fixture;
 
-    public when_ConfigureSerialization_and_UseCosmosDb()
+    public CosmosDbEventDatabase_tests()
     {
         var services = new ServiceCollection();
         var assembly = typeof(User).Assembly;
         services.AddEventForging(r =>
         {
-            r.Configuration.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+            r.ConfigureEventForging(c =>
+            {
+                c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+            });
             r.UseCosmosDb(cc =>
             {
                 cc.IgnoreServerCertificateValidation = true;

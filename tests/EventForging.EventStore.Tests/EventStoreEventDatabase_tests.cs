@@ -1,8 +1,6 @@
 ﻿// ReSharper disable InconsistentNaming
 
 using EventForging.DatabaseIntegrationTests.Common;
-using EventForging.DependencyInjection;
-using EventForging.EventStore.DependencyInjection;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,7 +9,7 @@ using Xunit;
 namespace EventForging.EventStore.Tests;
 
 [Trait("Category", "Integration")]
-public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
+public class EventStoreEventDatabase_tests : IAsyncLifetime
 {
     private const string ConnectionString = "esdb://localhost:2113?tls=false";
 
@@ -19,13 +17,16 @@ public class when_ConfigureSerialization_and_UseEventStore : IAsyncLifetime
 
     private readonly EventDatabaseTestFixture _fixture;
 
-    public when_ConfigureSerialization_and_UseEventStore()
+    public EventStoreEventDatabase_tests()
     {
         var services = new ServiceCollection();
         var assembly = typeof(User).Assembly;
         services.AddEventForging(r =>
         {
-            r.Configuration.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+            r.ConfigureEventForging(c =>
+            {
+                c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+            });
             r.UseEventStore(cc =>
             {
                 cc.Address = ConnectionString;

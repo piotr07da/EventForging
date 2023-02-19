@@ -1,9 +1,9 @@
 ﻿using EventForging.CosmosDb.Serialization;
-using EventForging.DependencyInjection;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EventForging.CosmosDb.DependencyInjection;
+// ReSharper disable once CheckNamespace
+namespace EventForging.CosmosDb;
 
 public static class EventForgingRegistrationConfigurationExtensions
 {

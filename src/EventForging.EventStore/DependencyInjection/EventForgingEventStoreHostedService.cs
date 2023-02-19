@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Hosting;
 
-namespace EventForging.EventStore.DependencyInjection;
+// ReSharper disable once CheckNamespace
+namespace EventForging.EventStore;
 
 internal sealed class EventForgingEventStoreHostedService : IHostedService, IAsyncDisposable
 {

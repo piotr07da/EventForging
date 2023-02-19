@@ -1,5 +1,4 @@
-﻿using EventForging.DependencyInjection;
-using EventForging.InMemory.DependencyInjection;
+﻿using EventForging.InMemory;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EventForging.Tests;
@@ -10,11 +9,14 @@ public static class ServiceProviderFactory
     {
         var serviceCollection = new ServiceCollection();
 
-        serviceCollection.AddEventForging(c =>
+        serviceCollection.AddEventForging(r =>
         {
-            c.Configuration.IdempotencyEnabled = false;
+            r.ConfigureEventForging(c =>
+            {
+                c.IdempotencyEnabled = false;
+            });
 
-            c.UseInMemory(imConfigurator =>
+            r.UseInMemory(imConfigurator =>
             {
                 imConfigurator.SerializationEnabled = false;
             });
