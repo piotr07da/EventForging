@@ -1,6 +1,4 @@
-﻿using EventForging.Serialization;
-
-namespace EventForging;
+﻿namespace EventForging.Serialization;
 
 public interface IEventForgingSerializationConfiguration
 {

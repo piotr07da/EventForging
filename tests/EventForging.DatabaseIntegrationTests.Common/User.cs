@@ -10,7 +10,7 @@ public class User : IEventForged
     public Events Events { get; }
 
     public Guid Id { get; private set; }
-    public string Name { get; private set; }
+    public string? Name { get; private set; }
     public bool Approved { get; private set; }
 
     public static User Register(Guid id)

@@ -1,4 +1,5 @@
 ﻿using EventForging.EventsHandling;
+using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
 // ReSharper disable once CheckNamespace
