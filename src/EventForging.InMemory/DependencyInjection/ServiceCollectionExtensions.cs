@@ -1,4 +1,5 @@
-﻿using EventForging.InMemory.Serialization;
+﻿using EventForging.InMemory.EventHandling;
+using EventForging.InMemory.Serialization;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -33,6 +34,10 @@ public static class ServiceCollectionExtensions
         }
 
         services.AddSingleton<IEventDatabase, InMemoryEventDatabase>();
+
+        services.AddSingleton<ISubscriptions, Subscriptions>();
+
+        services.AddHostedService<InMemoryEventForgingHostedService>();
 
         return registrationConfiguration;
     }

@@ -29,7 +29,7 @@ public static class EventForgingRegistrationConfigurationExtensions
 
         services.AddTransient<IEventDatabase, CosmosDbEventDatabase>();
 
-        services.AddHostedService<EventForgingCosmosDbHostedService>();
+        services.AddHostedService<CosmosDbEventForgingHostedService>();
 
         return registrationConfiguration;
     }

@@ -17,46 +17,48 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
     private const string DatabaseName = "TestModule";
     private const string ContainerName = "TestModule-Events";
 
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IHost _host;
     private readonly CosmosClient _cosmosClient;
 
     private readonly EventDatabaseTestFixture _fixture;
 
     public CosmosDbEventDatabase_tests()
     {
-        var services = new ServiceCollection();
-        var assembly = typeof(User).Assembly;
-        services.AddEventForging(r =>
-        {
-            r.ConfigureEventForging(c =>
+        var hostBuilder = new HostBuilder()
+            .ConfigureServices(services =>
             {
-                c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+                var assembly = typeof(User).Assembly;
+                services.AddEventForging(r =>
+                {
+                    r.ConfigureEventForging(c =>
+                    {
+                        c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+                    });
+                    r.UseCosmosDb(cc =>
+                    {
+                        cc.IgnoreServerCertificateValidation = true;
+                        cc.ConnectionString = ConnectionString;
+                        cc.AddAggregatesLocations(DatabaseName, ContainerName, assembly);
+                    });
+                });
+                services.AddSingleton<EventDatabaseTestFixture>();
             });
-            r.UseCosmosDb(cc =>
-            {
-                cc.IgnoreServerCertificateValidation = true;
-                cc.ConnectionString = ConnectionString;
-                cc.AddAggregatesLocations(DatabaseName, ContainerName, assembly);
-            });
-        });
-        services.AddSingleton<EventDatabaseTestFixture>();
-        _serviceProvider = services.BuildServiceProvider();
+
+        _host = hostBuilder.Build();
 
         _cosmosClient = CreateCosmosClient();
 
-        _fixture = _serviceProvider.GetRequiredService<EventDatabaseTestFixture>();
+        _fixture = _host.Services.GetRequiredService<EventDatabaseTestFixture>();
     }
 
     public async Task InitializeAsync()
     {
-        var hs = _serviceProvider.GetRequiredService<IHostedService>();
-        await hs.StartAsync(CancellationToken.None);
+        await _host.StartAsync();
     }
 
     public async Task DisposeAsync()
     {
-        var hs = _serviceProvider.GetRequiredService<IHostedService>();
-        await hs.StopAsync(CancellationToken.None);
+        await _host.StopAsync();
 
         var db = _cosmosClient.GetDatabase(DatabaseName);
         await db.DeleteAsync();

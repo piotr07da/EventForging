@@ -1,14 +1,13 @@
 ﻿using Microsoft.Extensions.Hosting;
 
-// ReSharper disable once CheckNamespace
 namespace EventForging.CosmosDb;
 
-internal sealed class EventForgingCosmosDbHostedService : IHostedService, IAsyncDisposable
+internal sealed class CosmosDbEventForgingHostedService : IHostedService, IAsyncDisposable
 {
     private readonly ICosmosDbProvider _cosmosDbProvider;
     private bool _stopRequested;
 
-    public EventForgingCosmosDbHostedService(
+    public CosmosDbEventForgingHostedService(
         ICosmosDbProvider cosmosDbProvider
     )
     {

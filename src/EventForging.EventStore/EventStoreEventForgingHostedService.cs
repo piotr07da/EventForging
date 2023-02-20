@@ -1,19 +1,10 @@
 ﻿using Microsoft.Extensions.Hosting;
 
-// ReSharper disable once CheckNamespace
 namespace EventForging.EventStore;
 
-internal sealed class EventForgingEventStoreHostedService : IHostedService, IAsyncDisposable
+internal sealed class EventStoreEventForgingHostedService : IHostedService, IAsyncDisposable
 {
     private bool _stopRequested;
-
-    public async ValueTask DisposeAsync()
-    {
-        if (!_stopRequested)
-        {
-            await StopAsync(CancellationToken.None);
-        }
-    }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -24,5 +15,13 @@ internal sealed class EventForgingEventStoreHostedService : IHostedService, IAsy
     {
         _stopRequested = true;
         await Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_stopRequested)
+        {
+            await StopAsync(CancellationToken.None);
+        }
     }
 }

@@ -13,40 +13,43 @@ public class EventStoreEventDatabase_tests : IAsyncLifetime
 {
     private const string ConnectionString = "esdb://localhost:2113?tls=false";
 
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IHost _host;
 
     private readonly EventDatabaseTestFixture _fixture;
 
     public EventStoreEventDatabase_tests()
     {
-        var services = new ServiceCollection();
-        var assembly = typeof(User).Assembly;
-        services.AddEventForging(r =>
-        {
-            r.ConfigureEventForging(c =>
+        var hostBuilder = new HostBuilder()
+            .ConfigureServices(services =>
             {
-                c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+                var assembly = typeof(User).Assembly;
+                services.AddEventForging(r =>
+                {
+                    r.ConfigureEventForging(c =>
+                    {
+                        c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
+                    });
+                    r.UseEventStore(cc =>
+                    {
+                        cc.Address = ConnectionString;
+                    });
+                });
+                services.AddSingleton<EventDatabaseTestFixture>();
             });
-            r.UseEventStore(cc =>
-            {
-                cc.Address = ConnectionString;
-            });
-        });
-        services.AddSingleton<EventDatabaseTestFixture>();
-        _serviceProvider = services.BuildServiceProvider();
 
-        _fixture = _serviceProvider.GetRequiredService<EventDatabaseTestFixture>();
+        _host = hostBuilder.Build();
+
+        _fixture = _host.Services.GetRequiredService<EventDatabaseTestFixture>();
     }
 
     public async Task InitializeAsync()
     {
-        var hs = _serviceProvider.GetRequiredService<IHostedService>();
-        await hs.StartAsync(CancellationToken.None);
+        await _host.StartAsync();
     }
 
     public async Task DisposeAsync()
     {
-        await Task.CompletedTask;
+        await _host.StopAsync();
     }
 
     [Fact]

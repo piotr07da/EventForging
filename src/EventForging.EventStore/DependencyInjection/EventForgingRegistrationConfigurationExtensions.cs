@@ -33,7 +33,7 @@ public static class EventForgingRegistrationConfigurationExtensions
 
         services.AddTransient<IEventDatabase, EventStoreEventDatabase>();
 
-        services.AddHostedService<EventForgingEventStoreHostedService>();
+        services.AddHostedService<EventStoreEventForgingHostedService>();
 
         return registrationConfiguration;
     }

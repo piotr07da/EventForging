@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using EventForging.EventsHandling;
 using EventForging.Idempotency;
+using EventForging.InMemory.EventHandling;
 using EventForging.Serialization;
 
 namespace EventForging.InMemory;
@@ -12,14 +13,14 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
     private readonly IEventSerializer _serializer;
     private readonly IEventForgingConfiguration _configuration;
     private readonly IEventForgingInMemoryConfiguration _inMemoryConfiguration;
-    private readonly IEventDispatcher _eventDispatcher;
+    private readonly ISubscriptions _subscriptions;
 
-    public InMemoryEventDatabase(IEventSerializer serializer, IEventForgingConfiguration configuration, IEventForgingInMemoryConfiguration inMemoryConfiguration, IEventDispatcher eventDispatcher)
+    public InMemoryEventDatabase(IEventSerializer serializer, IEventForgingConfiguration configuration, IEventForgingInMemoryConfiguration inMemoryConfiguration, ISubscriptions subscriptions)
     {
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _inMemoryConfiguration = inMemoryConfiguration ?? throw new ArgumentNullException(nameof(inMemoryConfiguration));
-        _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));
+        _subscriptions = subscriptions ?? throw new ArgumentNullException(nameof(subscriptions));
     }
 
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -111,16 +112,16 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
         _streams[aggregateId] = allEventEntries;
 
-        await PublishEventsAsync(newEventEntries, cancellationToken);
+        PublishEvents(newEventEntries, cancellationToken);
 
         await Task.CompletedTask;
     }
 
-    private async Task PublishEventsAsync(IEnumerable<EventEntry> eventEntries, CancellationToken cancellationToken)
+    private void PublishEvents(IReadOnlyCollection<EventEntry> eventEntries, CancellationToken cancellationToken)
     {
-        foreach (var entry in eventEntries)
+        foreach (var subscription in _inMemoryConfiguration.EventSubscriptions)
         {
-            foreach (var subscription in _inMemoryConfiguration.EventSubscriptions)
+            foreach (var entry in eventEntries)
             {
                 object eData;
                 if (_inMemoryConfiguration.SerializationEnabled)
@@ -132,7 +133,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
                     eData = entry.Data;
                 }
 
-                await _eventDispatcher.DispatchAsync(subscription, eData, new EventInfo(entry.Id, entry.Version, entry.Type, entry.Metadata.ConversationId, entry.Metadata.InitiatorId, entry.Timestamp, entry.Metadata.CustomProperties), cancellationToken);
+                _subscriptions.Send(subscription, eData, new EventInfo(entry.Id, entry.Version, entry.Type, entry.Metadata.ConversationId, entry.Metadata.InitiatorId, entry.Timestamp, entry.Metadata.CustomProperties));
             }
         }
     }
