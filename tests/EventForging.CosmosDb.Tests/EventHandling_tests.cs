@@ -2,9 +2,11 @@
 
 using EventForging.DatabaseIntegrationTests.Common;
 using EventForging.Serialization;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Xunit;
+using User = EventForging.DatabaseIntegrationTests.Common.User;
 
 namespace EventForging.CosmosDb.Tests;
 
@@ -18,6 +20,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
     private readonly IHost _host;
     private readonly EventHandlingTestFixture _fixture;
+    private readonly CosmosClient _cosmosClient;
 
     public EventHandling_tests()
     {
@@ -48,6 +51,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
         _host = hostBuilder.Build();
         _fixture = _host.Services.GetRequiredService<EventHandlingTestFixture>();
+        _cosmosClient = CreateCosmosClient();
         ReadModel.Initialize();
     }
 
@@ -59,11 +63,23 @@ public sealed class EventHandling_tests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _host.StopAsync();
+
+        var db = _cosmosClient.GetDatabase(DatabaseName);
+        await db.DeleteAsync();
     }
 
     [Fact]
     public async Task when_aggregate_saved_then_events_handled()
     {
         await _fixture.when_aggregate_saved_then_events_handled();
+    }
+
+    private static CosmosClient CreateCosmosClient()
+    {
+        return new CosmosClient(ConnectionString, new CosmosClientOptions
+        {
+            HttpClientFactory = () => new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true, }),
+            ConnectionMode = ConnectionMode.Gateway,
+        });
     }
 }

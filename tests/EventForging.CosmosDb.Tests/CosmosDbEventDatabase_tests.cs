@@ -18,9 +18,8 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
     private const string ContainerName = "TestModule-Events";
 
     private readonly IHost _host;
-    private readonly CosmosClient _cosmosClient;
-
     private readonly EventDatabaseTestFixture _fixture;
+    private readonly CosmosClient _cosmosClient;
 
     public CosmosDbEventDatabase_tests()
     {
@@ -45,10 +44,8 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
             });
 
         _host = hostBuilder.Build();
-
-        _cosmosClient = CreateCosmosClient();
-
         _fixture = _host.Services.GetRequiredService<EventDatabaseTestFixture>();
+        _cosmosClient = CreateCosmosClient();
     }
 
     public async Task InitializeAsync()
