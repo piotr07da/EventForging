@@ -1,6 +1,6 @@
 ﻿namespace EventForging.InMemory;
 
-public interface IEventForgingInMemoryConfiguration
+public interface IInMemoryEventForgingConfiguration
 {
     public bool SerializationEnabled { get; set; }
     public IReadOnlyList<string> EventSubscriptions { get; }

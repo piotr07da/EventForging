@@ -8,7 +8,7 @@ namespace EventForging.InMemory;
 
 public static class ServiceCollectionExtensions
 {
-    public static IEventForgingRegistrationConfiguration UseInMemory(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IEventForgingInMemoryConfiguration>? configurator = null)
+    public static IEventForgingRegistrationConfiguration UseInMemory(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IInMemoryEventForgingConfiguration>? configurator = null)
     {
         var services = registrationConfiguration.Services;
 
@@ -19,9 +19,9 @@ public static class ServiceCollectionExtensions
         }
 
         configurator ??= ConfigureDefault;
-        var configuration = new EventForgingInMemoryConfiguration();
+        var configuration = new InMemoryEventForgingConfiguration();
         configurator(configuration);
-        services.AddSingleton<IEventForgingInMemoryConfiguration>(configuration);
+        services.AddSingleton<IInMemoryEventForgingConfiguration>(configuration);
 
         if (configuration.SerializationEnabled)
         {
@@ -42,7 +42,7 @@ public static class ServiceCollectionExtensions
         return registrationConfiguration;
     }
 
-    private static void ConfigureDefault(IEventForgingInMemoryConfiguration configuration)
+    private static void ConfigureDefault(IInMemoryEventForgingConfiguration configuration)
     {
         configuration.SerializationEnabled = false;
     }

@@ -152,7 +152,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     private Container GetContainer<TAggregate>()
     {
-        return _cosmosDbProvider.GetContainer<TAggregate>();
+        return _cosmosDbProvider.GetAggregateContainer<TAggregate>();
     }
 
 

@@ -1,6 +1,6 @@
 ﻿namespace EventForging.EventStore;
 
-public interface IEventForgingEventStoreConfiguration
+public interface IEventStoreEventForgingConfiguration
 {
     string? Address { get; set; }
 }

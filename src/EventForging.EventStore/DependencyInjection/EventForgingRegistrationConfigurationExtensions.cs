@@ -7,20 +7,20 @@ namespace EventForging.EventStore;
 
 public static class EventForgingRegistrationConfigurationExtensions
 {
-    public static IEventForgingRegistrationConfiguration UseEventStore(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IEventForgingEventStoreConfiguration> configurator)
+    public static IEventForgingRegistrationConfiguration UseEventStore(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IEventStoreEventForgingConfiguration> configurator)
     {
         var services = registrationConfiguration.Services;
 
-        var cfgDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEventForgingEventStoreConfiguration));
+        var cfgDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEventStoreEventForgingConfiguration));
         if (cfgDescriptor != null)
         {
             throw new EventForgingConfigurationException("EventStore already used.");
         }
 
-        var configuration = new EventForgingEventStoreConfiguration();
+        var configuration = new EventStoreEventForgingConfiguration();
         configurator(configuration);
         ValidateConfiguration(configuration);
-        services.AddSingleton<IEventForgingEventStoreConfiguration>(configuration);
+        services.AddSingleton<IEventStoreEventForgingConfiguration>(configuration);
 
         services.AddSingleton<IEventSerializer, JsonEventSerializer>();
         services.AddSingleton<IJsonSerializerOptionsProvider, EventStoreJsonSerializerOptionsProvider>();
@@ -38,7 +38,7 @@ public static class EventForgingRegistrationConfigurationExtensions
         return registrationConfiguration;
     }
 
-    private static void ValidateConfiguration(EventForgingEventStoreConfiguration configuration)
+    private static void ValidateConfiguration(EventStoreEventForgingConfiguration configuration)
     {
         if (string.IsNullOrEmpty(configuration.Address))
         {

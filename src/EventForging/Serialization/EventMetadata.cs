@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace EventForging.Serialization;
+﻿namespace EventForging.Serialization;
 
 public class EventMetadata
 {
@@ -9,10 +6,10 @@ public class EventMetadata
     {
         ConversationId = conversationId;
         InitiatorId = initiatorId;
-        CustomProperties = customProperties ?? new Dictionary<string, string>();
+        CustomProperties = customProperties == null || customProperties.Count == 0 ? null : customProperties;
     }
 
     public Guid ConversationId { get; set; }
     public Guid InitiatorId { get; set; }
-    public IDictionary<string, string> CustomProperties { get; set; }
+    public IDictionary<string, string>? CustomProperties { get; set; }
 }

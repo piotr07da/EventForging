@@ -33,9 +33,10 @@ namespace EventForging.DatabaseIntegrationTests.Common
 
             await _repository.SaveAsync(userId, user, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
 
-            await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+            await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
 
-            Assert.True(ReadModel.HasUser(IsExpectedUser));
+            Assert.True(tcs.Task.IsCompleted, "The operation timed out.");
+            Assert.True(ReadModel.HasUser(IsExpectedUser), "An aggregate with expected state not found.");
         }
     }
 }

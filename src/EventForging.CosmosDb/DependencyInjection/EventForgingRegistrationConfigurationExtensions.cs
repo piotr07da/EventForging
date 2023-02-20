@@ -1,4 +1,5 @@
-﻿using EventForging.CosmosDb.Serialization;
+﻿using EventForging.CosmosDb.EventHandling;
+using EventForging.CosmosDb.Serialization;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -7,34 +8,36 @@ namespace EventForging.CosmosDb;
 
 public static class EventForgingRegistrationConfigurationExtensions
 {
-    public static IEventForgingRegistrationConfiguration UseCosmosDb(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IEventForgingCosmosDbConfiguration> configurator)
+    public static IEventForgingRegistrationConfiguration UseCosmosDb(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<ICosmosDbEventForgingConfiguration> configurator)
     {
         var services = registrationConfiguration.Services;
 
-        var cfgDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEventForgingCosmosDbConfiguration));
+        var cfgDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(ICosmosDbEventForgingConfiguration));
         if (cfgDescriptor != null)
         {
             throw new EventForgingConfigurationException("CosmosDb already used.");
         }
 
-        var configuration = new EventForgingCosmosDbConfiguration();
+        var configuration = new CosmosDbEventForgingConfiguration();
         configurator(configuration);
         ValidateConfiguration(configuration);
-        services.AddSingleton<IEventForgingCosmosDbConfiguration>(configuration);
+        services.AddSingleton<ICosmosDbEventForgingConfiguration>(configuration);
 
         services.AddSingleton<ICosmosDbProvider, CosmosDbProvider>();
         services.AddSingleton<IEventSerializer, JsonEventSerializer>();
         services.AddSingleton<IJsonSerializerOptionsProvider, CosmosJsonSerializerOptionsProvider>();
         services.AddSingleton<IStreamNameFactory, DefaultStreamNameFactory>();
 
-        services.AddTransient<IEventDatabase, CosmosDbEventDatabase>();
+        services.AddSingleton<IEventDatabase, CosmosDbEventDatabase>();
+
+        services.AddSingleton<IEventsSubscriber, EventsSubscriber>();
 
         services.AddHostedService<CosmosDbEventForgingHostedService>();
 
         return registrationConfiguration;
     }
 
-    private static void ValidateConfiguration(EventForgingCosmosDbConfiguration configuration)
+    private static void ValidateConfiguration(CosmosDbEventForgingConfiguration configuration)
     {
         if (string.IsNullOrEmpty(configuration.ConnectionString))
         {

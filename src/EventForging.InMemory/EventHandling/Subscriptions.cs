@@ -6,10 +6,10 @@ internal sealed class Subscriptions : ISubscriptions
 {
     private static readonly IDictionary<string, Subscription> _subscriptions = new Dictionary<string, Subscription>();
 
-    private readonly IEventForgingInMemoryConfiguration _configuration;
+    private readonly IInMemoryEventForgingConfiguration _configuration;
     private readonly IEventDispatcher _eventDispatcher;
 
-    public Subscriptions(IEventForgingInMemoryConfiguration configuration, IEventDispatcher eventDispatcher)
+    public Subscriptions(IInMemoryEventForgingConfiguration configuration, IEventDispatcher eventDispatcher)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));

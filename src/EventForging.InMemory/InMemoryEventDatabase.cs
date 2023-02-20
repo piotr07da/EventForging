@@ -12,10 +12,10 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
     private static readonly ConcurrentDictionary<string, IDictionary<Guid, EventEntry>> _streams = new();
     private readonly IEventSerializer _serializer;
     private readonly IEventForgingConfiguration _configuration;
-    private readonly IEventForgingInMemoryConfiguration _inMemoryConfiguration;
+    private readonly IInMemoryEventForgingConfiguration _inMemoryConfiguration;
     private readonly ISubscriptions _subscriptions;
 
-    public InMemoryEventDatabase(IEventSerializer serializer, IEventForgingConfiguration configuration, IEventForgingInMemoryConfiguration inMemoryConfiguration, ISubscriptions subscriptions)
+    public InMemoryEventDatabase(IEventSerializer serializer, IEventForgingConfiguration configuration, IInMemoryEventForgingConfiguration inMemoryConfiguration, ISubscriptions subscriptions)
     {
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -133,7 +133,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
                     eData = entry.Data;
                 }
 
-                _subscriptions.Send(subscription, eData, new EventInfo(entry.Id, entry.Version, entry.Type, entry.Metadata.ConversationId, entry.Metadata.InitiatorId, entry.Timestamp, entry.Metadata.CustomProperties));
+                _subscriptions.Send(subscription, eData, new EventInfo(entry.Id, entry.Version, entry.Type, entry.Metadata.ConversationId, entry.Metadata.InitiatorId, entry.Timestamp, entry.Metadata.CustomProperties ?? new Dictionary<string, string>()));
             }
         }
     }

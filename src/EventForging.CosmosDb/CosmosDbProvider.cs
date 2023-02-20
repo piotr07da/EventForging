@@ -6,15 +6,16 @@ namespace EventForging.CosmosDb;
 
 internal sealed class CosmosDbProvider : ICosmosDbProvider
 {
-    private static CosmosClient? _client;
-    private static readonly IDictionary<string, Database> _databases = new Dictionary<string, Database>();
-    private static readonly IDictionary<string, Container> _containers = new Dictionary<string, Container>();
-    private static readonly IDictionary<Type, Container> _aggregateContainers = new Dictionary<Type, Container>();
-    private readonly IEventForgingCosmosDbConfiguration _configuration;
+    private readonly IDictionary<string, Database> _databases = new Dictionary<string, Database>();
+    private readonly IDictionary<string, Container> _containers = new Dictionary<string, Container>();
+    private readonly IDictionary<Type, Container> _aggregateContainers = new Dictionary<Type, Container>();
+    private readonly IDictionary<string, Container> _leaseContainers = new Dictionary<string, Container>();
+    private readonly ICosmosDbEventForgingConfiguration _configuration;
     private readonly IEventSerializer _eventSerializer;
     private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
+    private CosmosClient? _client;
 
-    public CosmosDbProvider(IEventForgingCosmosDbConfiguration configuration, IEventSerializer eventSerializer, IJsonSerializerOptionsProvider serializerOptionsProvider)
+    public CosmosDbProvider(ICosmosDbEventForgingConfiguration configuration, IEventSerializer eventSerializer, IJsonSerializerOptionsProvider serializerOptionsProvider)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
@@ -41,20 +42,16 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         {
             var aggregateType = kvp.Key;
             var locationConfiguration = kvp.Value;
-
-            if (!_databases.TryGetValue(locationConfiguration.DatabaseName, out var database))
-            {
-                database = await _client.CreateDatabaseIfNotExistsAsync(locationConfiguration.DatabaseName, cancellationToken: cancellationToken);
-                _databases.Add(locationConfiguration.DatabaseName, database);
-            }
-
-            if (!_containers.TryGetValue(locationConfiguration.ContainerName, out var container))
-            {
-                container = await database.CreateContainerIfNotExistsAsync(locationConfiguration.ContainerName, "/streamId", cancellationToken: cancellationToken);
-                _containers.Add(locationConfiguration.ContainerName, container);
-            }
-
+            var database = await InitializeDatabaseAsync(locationConfiguration.DatabaseName, cancellationToken);
+            var container = await InitializeContainerAsync(database, locationConfiguration.EventsContainerName, "/streamId", cancellationToken);
             _aggregateContainers.Add(aggregateType, container);
+        }
+
+        foreach (var subscription in _configuration.Subscriptions)
+        {
+            var database = await InitializeDatabaseAsync(subscription.DatabaseName, cancellationToken);
+            var container = await InitializeContainerAsync(database, "Lease", "/id", cancellationToken);
+            _leaseContainers.Add(subscription.DatabaseName, container);
         }
     }
 
@@ -67,15 +64,62 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         await Task.CompletedTask;
     }
 
-    public Container GetContainer<TAggregate>()
+    public Container GetAggregateContainer<TAggregate>()
     {
         var at = typeof(TAggregate);
 
         if (!_aggregateContainers.TryGetValue(at, out var container))
         {
-            throw new EventForgingException($"Cannot find cosmos db container for aggregate of type {at.FullName}. Use {nameof(IEventForgingCosmosDbConfiguration)}.{nameof(IEventForgingCosmosDbConfiguration.AddAggregateLocation)} method to register database and container names for this aggregate type.");
+            throw new EventForgingException($"Cannot find cosmos db container for aggregate of type {at.FullName}. Use {nameof(ICosmosDbEventForgingConfiguration)}.{nameof(ICosmosDbEventForgingConfiguration.AddAggregatesLocations)} method to register database and container names for this aggregate type.");
         }
 
         return container;
     }
+
+    public Container GetLeaseContainer(string databaseName)
+    {
+        if (!_leaseContainers.TryGetValue(databaseName, out var container))
+        {
+            throw new EventForgingException($"Cannot find cosmos db 'Lease' container in '{databaseName}' database.");
+        }
+
+        return container;
+    }
+
+    public Container GetContainer(string databaseName, string containerName)
+    {
+        var containerKey = ContainerCacheKey(databaseName, containerName);
+        if (!_containers.TryGetValue(containerKey, out var container))
+        {
+            throw new EventForgingException($"Cannot find cosmos db '{containerName}' container in '{databaseName}' database.");
+        }
+
+        return container;
+    }
+
+    private async Task<Database> InitializeDatabaseAsync(string databaseName, CancellationToken cancellationToken)
+    {
+        if (!_databases.TryGetValue(databaseName, out var database))
+        {
+            database = await _client!.CreateDatabaseIfNotExistsAsync(databaseName, cancellationToken: cancellationToken);
+            _databases.Add(databaseName, database);
+        }
+
+        return database;
+    }
+
+    private async Task<Container> InitializeContainerAsync(Database database, string containerName, string partitionKeyPath, CancellationToken cancellationToken)
+    {
+        var containerKey = ContainerCacheKey(database.Id, containerName);
+
+        if (!_containers.TryGetValue(containerKey, out var container))
+        {
+            container = await database.CreateContainerIfNotExistsAsync(containerName, partitionKeyPath, cancellationToken: cancellationToken);
+            _containers.Add(containerKey, container);
+        }
+
+        return container;
+    }
+
+    private static string ContainerCacheKey(string databaseName, string containerName) => $"~~{databaseName}~~{containerName}~~";
 }

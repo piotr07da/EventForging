@@ -1,6 +1,6 @@
 ﻿namespace EventForging.InMemory;
 
-internal sealed class EventForgingInMemoryConfiguration : IEventForgingInMemoryConfiguration
+internal sealed class InMemoryEventForgingConfiguration : IInMemoryEventForgingConfiguration
 {
     private readonly HashSet<string> _subscriptions = new();
 
