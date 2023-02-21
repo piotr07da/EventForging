@@ -1,4 +1,5 @@
-﻿using EventForging.EventStore.Serialization;
+﻿using EventForging.EventStore.EventHandling;
+using EventForging.EventStore.Serialization;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,14 +25,20 @@ public static class EventForgingRegistrationConfigurationExtensions
 
         services.AddSingleton<IEventSerializer, JsonEventSerializer>();
         services.AddSingleton<IJsonSerializerOptionsProvider, EventStoreJsonSerializerOptionsProvider>();
-        services.AddSingleton<IStreamNameFactory, DefaultStreamNameFactory>();
+        services.AddSingleton(configuration.CustomStreamNameFactory ?? new DefaultStreamNameFactory());
 
         services.AddEventStoreClient(ess =>
         {
             ess.ConnectivitySettings.Address = new Uri(configuration.Address!);
         });
+        services.AddEventStorePersistentSubscriptionsClient(ess =>
+        {
+            ess.ConnectivitySettings.Address = new Uri(configuration.Address!);
+        });
 
-        services.AddTransient<IEventDatabase, EventStoreEventDatabase>();
+        services.AddSingleton<IEventDatabase, EventStoreEventDatabase>();
+
+        services.AddSingleton<IEventsSubscriber, EventsSubscriber>();
 
         services.AddHostedService<EventStoreEventForgingHostedService>();
 
