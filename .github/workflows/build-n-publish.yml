@@ -31,10 +31,10 @@ jobs:
       run: dotnet test -c Release --no-restore --no-build --verbosity normal
       working-directory: tests/EventForging.InMemory.Tests
     - name: Test EventForging.EventStore.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration&Reliability!=Flaky
+      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration
       working-directory: tests/EventForging.EventStore.Tests
     - name: Test EventForging.CosmosDb.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration&Reliability!=Flaky
+      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category!=Integration
       working-directory: tests/EventForging.CosmosDb.Tests
   test-eventstore:
     runs-on: ubuntu-latest
@@ -65,7 +65,7 @@ jobs:
     - name: Build
       run: dotnet build -c Release --no-restore
     - name: Test EventForging.EventStore.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category=Integration&Reliability!=Flaky
+      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category=Integration
       working-directory: tests/EventForging.EventStore.Tests
   test-cosmosdb:
     if: false # As of February 2023, working with the Cosmos DB emulator is pure pain. It randomly returns 404s, 408s, and 503s, causing 70% of builds to fail, although all tests pass on the actual Cosmos DB.
@@ -97,7 +97,7 @@ jobs:
     - name: Build
       run: dotnet build -c Release --no-restore
     - name: Test EventForging.CosmosDb.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category=Integration&Reliability!=Flaky
+      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category=Integration
       working-directory: tests/EventForging.CosmosDb.Tests
   publish:
     runs-on: ubuntu-latest
