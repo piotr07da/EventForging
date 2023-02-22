@@ -3,9 +3,10 @@ using EventForging.EventsHandling;
 
 namespace EventForging.DatabaseIntegrationTests.Common;
 
-public sealed class UserEventHandlers :
+public sealed class SucceedingUserEventHandlers :
     IEventHandler<UserRegistered>,
-    IEventHandler<UserNamed>
+    IEventHandler<UserNamed>,
+    IEventHandler<UserApproved>
 {
     private static readonly IDictionary<Guid, Action<object, EventInfo>> _onEventHandled = new ConcurrentDictionary<Guid, Action<object, EventInfo>>();
 
@@ -13,14 +14,18 @@ public sealed class UserEventHandlers :
 
     public Task Handle(UserRegistered e, EventInfo ei, CancellationToken cancellationToken)
     {
-        ReadModel.AddOrUpdate(e.UserId, u => u.Id = e.UserId);
         if (_onEventHandled.TryGetValue(e.UserId, out var onEventHandled)) onEventHandled(e, ei);
         return Task.CompletedTask;
     }
 
     public Task Handle(UserNamed e, EventInfo ei, CancellationToken cancellationToken)
     {
-        ReadModel.AddOrUpdate(e.UserId, u => u.Name = e.Name);
+        if (_onEventHandled.TryGetValue(e.UserId, out var onEventHandled)) onEventHandled(e, ei);
+        return Task.CompletedTask;
+    }
+
+    public Task Handle(UserApproved e, EventInfo ei, CancellationToken cancellationToken)
+    {
         if (_onEventHandled.TryGetValue(e.UserId, out var onEventHandled)) onEventHandled(e, ei);
         return Task.CompletedTask;
     }

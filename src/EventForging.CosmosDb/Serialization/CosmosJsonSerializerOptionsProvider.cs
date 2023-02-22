@@ -8,6 +8,7 @@ internal sealed class CosmosJsonSerializerOptionsProvider : IJsonSerializerOptio
 {
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter(), },
     };

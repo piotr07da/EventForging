@@ -14,9 +14,11 @@ public sealed class EventHandling_tests : IAsyncLifetime
 {
     private const string ConnectionString = "esdb://localhost:2113?tls=false";
     private const string EventsStreamNamePrefix = "tests";
-    private const string SubscriptionName = "TestSubscription";
     private const string SubscriptionStreamName = "from-category-tests";
+    private const string SubscriptionName = "TestSubscription";
     private const string SubscriptionGroupName = "test-group";
+    private const string FailingSubscriptionName = "FailingTestSubscription";
+    private const string FailingSubscriptionGroupName = "failing-test-group";
     private const string ProjectionName = "from-category-tests-projection";
 
     private const string ProjectionQuery = $@"
@@ -55,7 +57,9 @@ fromCategory('{EventsStreamNamePrefix}')
                         cc.Address = ConnectionString;
 
                         cc.SetStreamNameFactory((aggregateType, aggregateId) => $"{EventsStreamNamePrefix}-{aggregateType.Name}-{aggregateId}");
+
                         cc.AddEventsSubscription(SubscriptionName, SubscriptionStreamName, SubscriptionGroupName);
+                        cc.AddEventsSubscription(FailingSubscriptionName, SubscriptionStreamName, FailingSubscriptionGroupName);
                     });
                     r.AddEventHandlers(assembly);
                 });
@@ -99,5 +103,11 @@ fromCategory('{EventsStreamNamePrefix}')
     public async Task when_aggregate_saved_then_events_handled()
     {
         await _fixture.when_aggregate_saved_then_events_handled();
+    }
+
+    [Fact]
+    public async Task when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success()
+    {
+        await _fixture.when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(3, 3, TimeSpan.FromSeconds(4));
     }
 }

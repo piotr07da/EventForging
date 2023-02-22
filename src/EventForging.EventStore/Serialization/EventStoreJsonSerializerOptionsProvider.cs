@@ -8,6 +8,7 @@ internal sealed class EventStoreJsonSerializerOptionsProvider : IJsonSerializerO
 {
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Converters = { new JsonStringEnumConverter(), },
     };
 

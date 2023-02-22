@@ -30,6 +30,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
                     {
                         c.SerializationEnabled = true;
                         c.AddEventSubscription("TestSubscription");
+                        c.AddEventSubscription("FailingTestSubscription");
                     });
                     r.AddEventHandlers(assembly);
                 });
@@ -55,5 +56,11 @@ public sealed class EventHandling_tests : IAsyncLifetime
     public async Task when_aggregate_saved_then_events_handled()
     {
         await _fixture.when_aggregate_saved_then_events_handled();
+    }
+
+    [Fact]
+    public async Task when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success()
+    {
+        await _fixture.when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(3, 3, TimeSpan.FromSeconds(5));
     }
 }

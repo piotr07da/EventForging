@@ -49,9 +49,12 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
 
         foreach (var subscription in _configuration.Subscriptions)
         {
-            var database = await InitializeDatabaseAsync(subscription.DatabaseName, cancellationToken);
-            var container = await InitializeContainerAsync(database, "Lease", "/id", cancellationToken);
-            _leaseContainers.Add(subscription.DatabaseName, container);
+            if (!_leaseContainers.ContainsKey(subscription.DatabaseName))
+            {
+                var database = await InitializeDatabaseAsync(subscription.DatabaseName, cancellationToken);
+                var container = await InitializeContainerAsync(database, "Lease", "/id", cancellationToken);
+                _leaseContainers.Add(subscription.DatabaseName, container);
+            }
         }
     }
 

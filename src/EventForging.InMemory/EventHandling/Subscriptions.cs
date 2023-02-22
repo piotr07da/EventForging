@@ -4,7 +4,7 @@ namespace EventForging.InMemory.EventHandling;
 
 internal sealed class Subscriptions : ISubscriptions
 {
-    private static readonly IDictionary<string, Subscription> _subscriptions = new Dictionary<string, Subscription>();
+    private readonly IDictionary<string, Subscription> _subscriptions = new Dictionary<string, Subscription>();
 
     private readonly IInMemoryEventForgingConfiguration _configuration;
     private readonly IEventDispatcher _eventDispatcher;

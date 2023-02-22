@@ -99,7 +99,7 @@ internal sealed class Subscription
         catch (Exception exception)
         {
             _logger.LogError(exception, exception.Message);
-            await subscription.Nack(PersistentSubscriptionNakEventAction.Retry, exception.Message, re);
+            await subscription.Nack(_subscriptionConfiguration.EventHandlingExceptionNakAction, exception.Message, re);
         }
     }
 

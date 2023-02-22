@@ -40,7 +40,7 @@ internal sealed class Subscription
                     }
                     catch (Exception ex)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(5), _cancellationTokenSource.Token);
+                        await Task.Delay(TimeSpan.FromMilliseconds(500), _cancellationTokenSource.Token);
                         _logger.LogError(ex, ex.Message);
                     }
                 }

@@ -1,4 +1,5 @@
 ﻿using EventForging.EventStore.EventHandling;
+using EventStore.Client;
 
 namespace EventForging.EventStore;
 
@@ -20,8 +21,13 @@ internal sealed class EventStoreEventForgingConfiguration : IEventStoreEventForg
         CustomStreamNameFactory = new DelegateStreamNameFactory(streamNameFactory);
     }
 
-    public void AddEventsSubscription(string subscriptionName, string streamName, string groupName, ulong? startFrom = 0)
+    public void AddEventsSubscription(
+        string subscriptionName,
+        string streamName,
+        string groupName,
+        PersistentSubscriptionNakEventAction eventHandlingExceptionNakAction = PersistentSubscriptionNakEventAction.Retry,
+        ulong? startFrom = 0)
     {
-        _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, streamName, groupName, startFrom));
+        _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, streamName, groupName, eventHandlingExceptionNakAction, startFrom));
     }
 }
