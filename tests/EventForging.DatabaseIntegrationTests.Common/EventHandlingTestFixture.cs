@@ -12,7 +12,7 @@ namespace EventForging.DatabaseIntegrationTests.Common
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         }
 
-        public async Task when_aggregate_saved_then_events_handled([CallerMemberName] string callerMethod = "")
+        public async Task when_aggregate_saved_then_events_handled(TimeSpan timeout, [CallerMemberName] string callerMethod = "")
         {
             Assert.Equal(nameof(when_aggregate_saved_then_events_handled), callerMethod);
 
@@ -41,7 +41,7 @@ namespace EventForging.DatabaseIntegrationTests.Common
             user.Approve();
             await _repository.SaveAsync(userId, user, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
 
-            await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(20)));
+            await Task.WhenAny(tcs.Task, Task.Delay(timeout));
 
             Assert.True(tcs.Task.IsCompleted, "The operation timed out.");
             Assert.True(ReadModel.HasSucceedingReadModelUser(userId, IsExpectedUser), "An aggregate with expected state not found.");

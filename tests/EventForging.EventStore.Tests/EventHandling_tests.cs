@@ -9,7 +9,7 @@ using Xunit;
 
 namespace EventForging.EventStore.Tests;
 
-[Trait("Category", "Integration")]
+[Trait("Category", "Flaky")]
 public sealed class EventHandling_tests : IAsyncLifetime
 {
     private const string ConnectionString = "esdb://localhost:2113?tls=false";
@@ -102,12 +102,12 @@ fromCategory('{EventsStreamNamePrefix}')
     [Fact]
     public async Task when_aggregate_saved_then_events_handled()
     {
-        await _fixture.when_aggregate_saved_then_events_handled();
+        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
     public async Task when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success()
     {
-        await _fixture.when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(3, 3, TimeSpan.FromSeconds(15));
+        await _fixture.when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(3, 3, TimeSpan.FromSeconds(5));
     }
 }

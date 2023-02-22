@@ -55,7 +55,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
     [Fact]
     public async Task when_aggregate_saved_then_events_handled()
     {
-        await _fixture.when_aggregate_saved_then_events_handled();
+        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
