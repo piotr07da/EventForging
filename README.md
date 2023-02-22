@@ -12,18 +12,20 @@ EventForging is MIT licensed.
 - InMemory mode
 - EventStore integration
 - CosmosDb integration
-- Opened for another databases
-- No inheritance hell - there are no base classes, you don't have to inherit from anything.
+- Allows integration with other databases
+- Per command idempotent
+- No inheritance hell - there are no base classes, you don't have to inherit from anything
 
 ## Using EventForging
 ### Application Layer
-To get and save an aggregate from and to the database we use the `IRepository<TAggregate>`.
+To get and save an aggregate from and to the database we use the `IRepository<TAggregate>` interface.
 ```csharp
     private readonly IRepository<Customer> _repository;
     
     public async Task Consume(ConsumeContext<RegisterCustomer> context)
     {
         var command = context.Message;
+
         var customer = Customer.Register(CustomerId.FromValue(command.CustomerId), CustomerName.FromValue(command.Name));
         await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.None, context.ConversationId, context.InitiatorId);
     }
@@ -31,6 +33,7 @@ To get and save an aggregate from and to the database we use the `IRepository<TA
     public async Task Consume(ConsumeContext<RenameCustomer> context)
     {
         var command = context.Message;
+
         var customer = await _repository.GetAsync(command.CustomerId);
         customer.Rename(CustomerName.FromValue(command.Name));
         await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.Any, context.ConversationId, context.InitiatorId);
