@@ -24,6 +24,11 @@ internal sealed class AggregateProxyGenerator
     {
         var baseType = typeof(TAggregate);
 
+        if (baseType.IsSealed)
+        {
+            throw new EventForgingException("An aggregate class cannot be sealed.");
+        }
+
         var constructors = baseType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
         if (constructors.All(ctor => ctor.GetParameters().Length > 0))
         {

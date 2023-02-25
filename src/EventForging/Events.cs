@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace EventForging;
+﻿namespace EventForging;
 
 public sealed class Events
 {
@@ -24,6 +20,12 @@ public sealed class Events
 
     public static Events CreateFor(object owner)
     {
+        var ownerType = owner.GetType();
+        if (ownerType.IsSealed)
+        {
+            throw new EventForgingException("An aggregate class cannot be sealed.");
+        }
+
         return new Events(EventApplier.CreateFor(owner));
     }
 }

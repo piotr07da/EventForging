@@ -1,5 +1,6 @@
 ﻿// ReSharper disable InconsistentNaming
 
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EventForging.Tests;
@@ -34,5 +35,27 @@ public class aggregate_tests
         {
             a.BrewNumberBeer(number);
         });
+    }
+
+    [Fact]
+    public void aggregate_cannot_be_sealed_to_be_able_to_be_created()
+    {
+        var ex = Assert.Throws<EventForgingException>(() =>
+        {
+            new SealedClassAggregate();
+        });
+        Assert.Equal("An aggregate class cannot be sealed.", ex.Message);
+    }
+
+    [Fact]
+    public async Task aggregate_cannot_be_sealed_to_be_able_to_be_rehydrated()
+    {
+        var repository = ServiceProviderFactory.Create().GetRequiredService<IRepository<SealedClassAggregate>>();
+
+        var ex = await Assert.ThrowsAsync<EventForgingException>(async () =>
+        {
+            await repository.GetAsync(Guid.NewGuid());
+        });
+        Assert.Equal("An aggregate class cannot be sealed.", ex.Message);
     }
 }
