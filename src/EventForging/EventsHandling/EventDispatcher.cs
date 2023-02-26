@@ -22,7 +22,7 @@ internal sealed class EventDispatcher : IEventDispatcher
 
         var handlerType = typeof(IEventHandler<>).MakeGenericType(eventType);
 
-        var handleMethod = handlerType.GetMethod("Handle")!;
+        var handleMethod = handlerType.GetMethod(nameof(IEventHandler<object>.HandleAsync))!;
 
         var handlers = _serviceProvider.GetServices(handlerType);
 

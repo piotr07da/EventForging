@@ -12,19 +12,19 @@ public sealed class FailingUserEventHandlers :
 
     public string SubscriptionName => "FailingTestSubscription";
 
-    public Task Handle(UserRegistered e, EventInfo ei, CancellationToken cancellationToken)
+    public Task HandleAsync(UserRegistered e, EventInfo ei, CancellationToken cancellationToken)
     {
         if (_onEventHandled.TryGetValue(e.UserId, out var onEventHandled)) onEventHandled(e, ei);
         return Task.CompletedTask;
     }
 
-    public Task Handle(UserNamed e, EventInfo ei, CancellationToken cancellationToken)
+    public Task HandleAsync(UserNamed e, EventInfo ei, CancellationToken cancellationToken)
     {
         if (_onEventHandled.TryGetValue(e.UserId, out var onEventHandled)) onEventHandled(e, ei);
         return Task.CompletedTask;
     }
 
-    public Task Handle(UserApproved e, EventInfo ei, CancellationToken cancellationToken)
+    public Task HandleAsync(UserApproved e, EventInfo ei, CancellationToken cancellationToken)
     {
         if (_onEventHandled.TryGetValue(e.UserId, out var onEventHandled)) onEventHandled(e, ei);
         return Task.CompletedTask;

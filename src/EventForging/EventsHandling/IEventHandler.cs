@@ -7,5 +7,5 @@ public interface IEventHandler
 
 public interface IEventHandler<in TEvent> : IEventHandler
 {
-    Task Handle(TEvent e, EventInfo ei, CancellationToken cancellationToken);
+    Task HandleAsync(TEvent e, EventInfo ei, CancellationToken cancellationToken);
 }
