@@ -53,6 +53,11 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
 
     public void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime)
     {
+        if (_subscriptions.Any(s => s.ChangeFeedName == changeFeedName))
+        {
+            throw new EventForgingConfigurationException($"Cannot add two event subscriptions with the same change feed name. Duplicated name is '{changeFeedName}'.");
+        }
+
         _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, databaseName, eventsContainerName, changeFeedName, startTime));
     }
 }
