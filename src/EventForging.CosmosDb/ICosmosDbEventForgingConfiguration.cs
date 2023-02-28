@@ -13,8 +13,8 @@ public interface ICosmosDbEventForgingConfiguration
     [EditorBrowsable(EditorBrowsableState.Never)]
     bool IgnoreServerCertificateValidation { get; set; }
 
-    void AddAggregatesLocations(string databaseName, string eventsContainerName, params Type[] aggregateTypes);
-    void AddAggregatesLocations(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Func<Type, bool>? aggregateTypeFilter = default);
+    void AddAggregateLocations(string databaseName, string eventsContainerName, params Type[] aggregateTypes);
+    void AddAggregateLocations(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Func<Type, bool>? aggregateTypeFilter = default);
 
     void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime);
 }

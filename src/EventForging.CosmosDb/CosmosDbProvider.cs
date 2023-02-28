@@ -73,7 +73,7 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
 
         if (!_aggregateContainers.TryGetValue(at, out var container))
         {
-            throw new EventForgingException($"Cannot find cosmos db container for aggregate of type {at.FullName}. Use {nameof(ICosmosDbEventForgingConfiguration)}.{nameof(ICosmosDbEventForgingConfiguration.AddAggregatesLocations)} method to register database and container names for this aggregate type.");
+            throw new EventForgingException($"Cannot find cosmos db container for aggregate of type {at.FullName}. Use {nameof(ICosmosDbEventForgingConfiguration)}.{nameof(ICosmosDbEventForgingConfiguration.AddAggregateLocations)} method to register database and container names for this aggregate type.");
         }
 
         return container;

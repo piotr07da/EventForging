@@ -13,7 +13,7 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
     public bool IgnoreServerCertificateValidation { get; set; }
     public IReadOnlyList<SubscriptionConfiguration> Subscriptions => _subscriptions;
 
-    public void AddAggregatesLocations(string databaseName, string eventsContainerName, params Type[] aggregateTypes)
+    public void AddAggregateLocations(string databaseName, string eventsContainerName, params Type[] aggregateTypes)
     {
         var locationConfiguration = new AggregateLocationConfiguration(databaseName, eventsContainerName);
 
@@ -35,7 +35,7 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
         }
     }
 
-    public void AddAggregatesLocations(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Func<Type, bool>? aggregateTypeFilter = default)
+    public void AddAggregateLocations(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Func<Type, bool>? aggregateTypeFilter = default)
     {
         var locationConfiguration = new AggregateLocationConfiguration(databaseName, eventsContainerName);
 

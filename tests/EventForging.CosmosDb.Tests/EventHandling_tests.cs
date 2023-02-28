@@ -43,7 +43,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
                         cc.IgnoreServerCertificateValidation = true;
                         cc.ConnectionString = ConnectionString;
 
-                        cc.AddAggregatesLocations(DatabaseName, EventsContainerName, assembly);
+                        cc.AddAggregateLocations(DatabaseName, EventsContainerName, assembly);
 
                         cc.AddEventsSubscription(SubscriptionName, DatabaseName, EventsContainerName, ChangeFeedName, null);
                         cc.AddEventsSubscription(FailingSubscriptionName, DatabaseName, EventsContainerName, FailingChangeFeedName, null);

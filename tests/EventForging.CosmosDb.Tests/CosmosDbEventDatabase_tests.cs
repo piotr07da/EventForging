@@ -37,7 +37,7 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
                     {
                         cc.IgnoreServerCertificateValidation = true;
                         cc.ConnectionString = ConnectionString;
-                        cc.AddAggregatesLocations(DatabaseName, ContainerName, assembly);
+                        cc.AddAggregateLocations(DatabaseName, ContainerName, assembly);
                     });
                 });
                 services.AddSingleton<EventDatabaseTestFixture>();
