@@ -20,24 +20,24 @@ EventForging is MIT licensed.
 ### Application Layer
 To get and save an aggregate from and to the database we use the `IRepository<TAggregate>` interface.
 ```csharp
-    private readonly IRepository<Customer> _repository;
-    
-    public async Task Consume(ConsumeContext<RegisterCustomer> context)
-    {
-        var command = context.Message;
+private readonly IRepository<Customer> _repository;
 
-        var customer = Customer.Register(CustomerId.FromValue(command.CustomerId), CustomerName.FromValue(command.Name));
-        await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.None, context.ConversationId, context.InitiatorId);
-    }
-    
-    public async Task Consume(ConsumeContext<RenameCustomer> context)
-    {
-        var command = context.Message;
+public async Task Consume(ConsumeContext<RegisterCustomer> context)
+{
+    var command = context.Message;
 
-        var customer = await _repository.GetAsync(command.CustomerId);
-        customer.Rename(CustomerName.FromValue(command.Name));
-        await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.Any, context.ConversationId, context.InitiatorId);
-    }
+    var customer = Customer.Register(CustomerId.FromValue(command.CustomerId), CustomerName.FromValue(command.Name));
+    await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.None, context.ConversationId, context.InitiatorId);
+}
+
+public async Task Consume(ConsumeContext<RenameCustomer> context)
+{
+    var command = context.Message;
+
+    var customer = await _repository.GetAsync(command.CustomerId);
+    customer.Rename(CustomerName.FromValue(command.Name));
+    await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.Any, context.ConversationId, context.InitiatorId);
+}
 ```
 ### Domain Layer
 Every aggregate has to implement the `IEventForged` interface. The simplest form looks like this:
@@ -56,37 +56,37 @@ Let's add two methods - the first will be a factory method, and the second will 
 For the simplicity of the example, there is no additional logic - just applying the events.
 
 ```csharp
-    public static Customer Register(CustomerId id, CustomerName name)
-    {
-        var customer = new Customer();
-        var events = customer.Events;
-        events.Apply(new CustomerRegistered(id.Value));
-        events.Apply(new CustomerNamed(id.Value, name.Value));
-        return customer;
-    }
+public static Customer Register(CustomerId id, CustomerName name)
+{
+    var customer = new Customer();
+    var events = customer.Events;
+    events.Apply(new CustomerRegistered(id.Value));
+    events.Apply(new CustomerNamed(id.Value, name.Value));
+    return customer;
+}
 
-    public void Rename(CustomerName name)
-    {
-        Events.Apply(new CustomerNamed(Id.Value, name.Value));
-    }
+public void Rename(CustomerName name)
+{
+    Events.Apply(new CustomerNamed(Id.Value, name.Value));
+}
 ```
 
 The final step is to rebuild the current state of the aggregate by handling the newly applied events as well as events loaded from the database.
 This is achived by creating a private `Apply` method for each type of event that can occur.
 
 ```csharp
-    public CustomerId Id { get; private set; }
-    public CustomerName Name { get; private set; }
+public CustomerId Id { get; private set; }
+public CustomerName Name { get; private set; }
 
-    private void Apply(CustomerRegistered e)
-    {
-        Id = CustomerId.Restore(e.Id);
-    }
-    
-    private void Apply(CustomerNamed e)
-    {
-        Name = CustomerName.Restore(e.Name);
-    }
+private void Apply(CustomerRegistered e)
+{
+    Id = CustomerId.Restore(e.Id);
+}
+
+private void Apply(CustomerNamed e)
+{
+    Name = CustomerName.Restore(e.Name);
+}
 ```
 
 ## Idempotency
