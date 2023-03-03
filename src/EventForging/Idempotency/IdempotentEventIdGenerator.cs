@@ -11,17 +11,23 @@ public static class IdempotentEventIdGenerator
 
         var initiatorIdBytes = initiatorId.ToByteArray();
 
-        for (var i = 0; i < initiatorIdBytes.Length; ++i)
-        {
-            var b = initiatorIdBytes[i];
-            b = (byte)(b ^ 0b11010100);
-            if (i < 8) // eventIndex is of type int so there are 8 bytes
-            {
-                var eventIndexMask = (byte)(eventIndex >> (i * 8));
-                b = (byte)(b ^ eventIndexMask);
-            }
+        var initiatorIdByteIndex = 0;
+        var eventIndexByteIndex = 0;
 
-            initiatorIdBytes[i] = b;
+        for (; initiatorIdByteIndex < initiatorIdBytes.Length;)
+        {
+            var eb = (byte)(initiatorIdBytes[initiatorIdByteIndex] ^ 0b11010100);
+            var ob = (byte)(255 - initiatorIdBytes[initiatorIdByteIndex + 1]);
+
+            var eventIndexByte = (byte)(eventIndex >> (eventIndexByteIndex * 8));
+            eb = (byte)(eb ^ eventIndexByte);
+            ob = (byte)(ob ^ eventIndexByte);
+
+            initiatorIdBytes[initiatorIdByteIndex] = eb;
+            initiatorIdBytes[initiatorIdByteIndex + 1] = ob;
+
+            initiatorIdByteIndex += 2;
+            eventIndexByteIndex += 1;
         }
 
         var eventId = new Guid(initiatorIdBytes);

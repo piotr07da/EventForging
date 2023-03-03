@@ -6,6 +6,11 @@ public class EventForgingSerializationConfiguration : IEventForgingSerialization
 
     public void SetEventTypeNameMappers(params IEventTypeNameMapper[] mappers)
     {
+        if (EventTypeNameMappers.Any())
+        {
+            throw new EventForgingConfigurationException("Event type name mappers are already set.");
+        }
+
         EventTypeNameMappers = mappers;
     }
 }

@@ -25,7 +25,7 @@ public static class EventForgingRegistrationConfigurationExtensions
 
         services.AddSingleton<IEventSerializer, JsonEventSerializer>();
         services.AddSingleton<IJsonSerializerOptionsProvider, EventStoreJsonSerializerOptionsProvider>();
-        services.AddSingleton(configuration.CustomStreamNameFactory ?? new DefaultStreamNameFactory());
+        services.AddSingleton(configuration.StreamNameFactory);
 
         services.AddEventStoreClient(ess =>
         {

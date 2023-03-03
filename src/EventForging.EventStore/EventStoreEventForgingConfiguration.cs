@@ -9,16 +9,16 @@ internal sealed class EventStoreEventForgingConfiguration : IEventStoreEventForg
 
     public string? Address { get; set; }
     public IReadOnlyList<SubscriptionConfiguration> Subscriptions => _subscriptions;
-    public IStreamNameFactory? CustomStreamNameFactory { get; private set; }
+    public IStreamNameFactory StreamNameFactory { get; private set; } = new DefaultStreamNameFactory();
 
     public void SetStreamNameFactory(IStreamNameFactory streamNameFactory)
     {
-        CustomStreamNameFactory = streamNameFactory;
+        StreamNameFactory = streamNameFactory;
     }
 
     public void SetStreamNameFactory(Func<Type, string, string> streamNameFactory)
     {
-        CustomStreamNameFactory = new DelegateStreamNameFactory(streamNameFactory);
+        StreamNameFactory = new DelegateStreamNameFactory(streamNameFactory);
     }
 
     public void AddEventsSubscription(

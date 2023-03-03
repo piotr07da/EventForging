@@ -9,7 +9,7 @@ public interface IEventStoreEventForgingConfiguration
 
     IReadOnlyList<SubscriptionConfiguration> Subscriptions { get; }
 
-    IStreamNameFactory? CustomStreamNameFactory { get; }
+    IStreamNameFactory StreamNameFactory { get; }
 
     /// <summary>
     ///     Allows to set custom stream name factory.

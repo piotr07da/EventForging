@@ -23,12 +23,12 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
         {
             if (!eventForgedType.IsAssignableFrom(aggregateType))
             {
-                throw new EventForgingConfigurationException($"Given aggregate type {aggregateType.FullName} does not implement {eventForgedType.FullName} interface.");
+                throw new EventForgingConfigurationException($"Given an aggregate of type '{aggregateType.FullName}' does not implement the '{eventForgedType.FullName}' interface.");
             }
 
             if (_aggregateLocations.TryGetValue(aggregateType, out var location))
             {
-                throw new EventForgingConfigurationException($"Cannot add location for aggregate of type {aggregateType.FullName}. Following location has already been registered: [{location.DatabaseName}, {location.EventsContainerName}].");
+                throw new EventForgingConfigurationException($"Cannot add location for an aggregate of type '{aggregateType.FullName}'. Following location has already been registered: [{location.DatabaseName}, {location.EventsContainerName}].");
             }
 
             _aggregateLocations.Add(aggregateType, locationConfiguration);
