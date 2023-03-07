@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace EventForging.Serialization;
+﻿namespace EventForging.Serialization;
 
 public interface IEventTypeNameMapper
 {

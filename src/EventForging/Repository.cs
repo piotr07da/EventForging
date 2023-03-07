@@ -32,7 +32,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
         if (eventCount == 0)
         {
-            throw new Exception($"No events found for an aggregate {typeof(TAggregate).Name} with id '{aggregateId}'.");
+            throw new AggregateNotFoundEventForgingException(typeof(TAggregate), aggregateId);
         }
 
         aggregate.ConfigureAggregateMetadata(md => md.ReadVersion = eventCount - 1);

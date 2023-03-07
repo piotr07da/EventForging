@@ -33,7 +33,7 @@ public readonly struct ExpectedVersion
     {
         if (v < 0)
         {
-            throw new Exception($"Negative version numbers are not allowed. Correct values are: {nameof(None)}, {nameof(Any)}, and all integers greater or equal to 0.");
+            throw new EventForgingException($"Negative version numbers are not allowed. Correct values are: {nameof(None)}, {nameof(Any)}, and all integers greater or equal to 0.");
         }
 
         return new ExpectedVersion(v);

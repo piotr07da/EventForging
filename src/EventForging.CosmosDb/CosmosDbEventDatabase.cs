@@ -115,7 +115,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
 
         if (!response.IsSuccessStatusCode)
-            throw new Exception(response.ErrorMessage);
+            throw new EventForgingException(response.ErrorMessage);
     }
 
     private async Task<HeaderDocument> ReadHeaderAsync<TAggregate>(string streamId, CancellationToken cancellationToken = default)

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace EventForging.Logging;
+﻿namespace EventForging.Logging;
 
 internal class NullScope : IDisposable
 {

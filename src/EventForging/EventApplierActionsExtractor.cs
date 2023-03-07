@@ -26,12 +26,12 @@ internal static class EventApplierActionsExtractor
         foreach (var m in applyMethods)
         {
             if (m.ReturnType != typeof(void))
-                throw new Exception("All aggregate Apply methods must have void return type.");
+                throw new EventForgingException("All aggregate Apply methods must have void return type.");
 
             var parameters = m.GetParameters();
 
             if (parameters.Length != 1)
-                throw new Exception("All aggregate Apply methods must have exactly one argument.");
+                throw new EventForgingException("All aggregate Apply methods must have exactly one argument.");
 
             var prm = parameters[0];
 

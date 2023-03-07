@@ -2,21 +2,20 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace EventForging
+namespace EventForging;
+
+[EditorBrowsable(EditorBrowsableState.Never)]
+public static class NullableLoggerFactoryExtensions
 {
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public static class NullableLoggerFactoryExtensions
+    public static ILogger CreateEventForgingLogger(this ILoggerFactory? loggerFactory) => CreateEventForgingLogger(loggerFactory, "EventForging");
+
+    public static ILogger CreateEventForgingLogger(this ILoggerFactory? loggerFactory, string categoryName)
     {
-        public static ILogger CreateEventForgingLogger(this ILoggerFactory? loggerFactory) => CreateEventForgingLogger(loggerFactory, "EventForging");
-
-        public static ILogger CreateEventForgingLogger(this ILoggerFactory? loggerFactory, string categoryName)
+        if (loggerFactory != null)
         {
-            if (loggerFactory != null)
-            {
-                return loggerFactory.CreateLogger(categoryName);
-            }
-
-            return NullLogger.Instance;
+            return loggerFactory.CreateLogger(categoryName);
         }
+
+        return NullLogger.Instance;
     }
 }

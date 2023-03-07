@@ -75,7 +75,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             if (_stopRequested)
             {
                 // Throw inside the loop to fail as soon as possible.
-                throw new Exception(stopRequestedExceptionMessage);
+                throw new EventForgingException(stopRequestedExceptionMessage);
             }
 
             try
@@ -94,7 +94,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         // Throw after the loop to avoid situation of incorrectly handled changes which is probable after the stop request.
         if (_stopRequested)
         {
-            throw new Exception(stopRequestedExceptionMessage);
+            throw new EventForgingException(stopRequestedExceptionMessage);
         }
     }
 

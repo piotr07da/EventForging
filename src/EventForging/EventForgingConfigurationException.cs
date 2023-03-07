@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace EventForging;
+﻿namespace EventForging;
 
 public class EventForgingConfigurationException : EventForgingException
 {
