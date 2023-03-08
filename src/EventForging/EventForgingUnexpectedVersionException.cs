@@ -43,19 +43,31 @@ public class EventForgingUnexpectedVersionException : EventForgingConcurrencyExc
     private static string FormatMessage(string aggregateId, string? streamId, ExpectedVersion expectedVersion, AggregateVersion readVersion, AggregateVersion? actualVersion)
     {
         var messageBuilder = new StringBuilder();
-        messageBuilder.AppendLine($"Unexpected version while writing an aggregate with id {aggregateId}.");
+        messageBuilder.AppendLine($"Unexpected version while saving an aggregate with id '{aggregateId}' to the database.");
         if (!string.IsNullOrEmpty(streamId))
         {
-            messageBuilder.AppendLine($"Stream id is {streamId}.");
+            messageBuilder.AppendLine($"The event stream id is '{streamId}'.");
         }
 
-        messageBuilder.AppendLine($"Aggregate version while it was read from the repository (or while it was newly created) was {readVersion}.");
+        if (readVersion.AggregateDoesNotExist)
+        {
+            // TODO
+            messageBuilder.AppendLine($"Aggregate was created so its version was '{readVersion}'.");
+        }
+        else
+        {
+            // TODO
+            messageBuilder.AppendLine($"Aggregate version while it was read from the database was '{readVersion}'.");
+        }
+
         if (actualVersion.HasValue)
         {
-            messageBuilder.AppendLine($"Actual version is {actualVersion.Value}.");
+            messageBuilder.AppendLine($"Actual version stored in the database is '{actualVersion.Value}'.");
         }
 
-        messageBuilder.AppendLine($"Expected version is {expectedVersion}.");
+        messageBuilder.AppendLine($"Expected version passed in an argument was '{expectedVersion}'.");
+        if (expectedVersion.IsAny)
+            messageBuilder.AppendLine($"Because expected version passed in an argument was '{expectedVersion}', the version of an aggregate stored in the database was the same as its read version which was '{readVersion}'.");
 
         return messageBuilder.ToString();
     }

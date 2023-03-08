@@ -5,18 +5,6 @@ internal sealed class EventApplier
     private object? _target;
     private IReadOnlyDictionary<Type, EventApplierAction>? _eventApplierActions;
 
-    public int ApplyEvents(IEnumerable<object> events, bool throwIfApplyActionNotFound)
-    {
-        var count = 0;
-        foreach (var evt in events)
-        {
-            ApplyEvent(evt, throwIfApplyActionNotFound);
-            ++count;
-        }
-
-        return count;
-    }
-
     public void ApplyEvent(object @event, bool throwIfApplyActionNotFound)
     {
         if (_target == null || _eventApplierActions == null) throw new EventForgingException($"Cannot apply event of type '{@event.GetType().FullName}' because target aggregate has not been registered.");
