@@ -114,7 +114,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
             }
         }
 
-        _streams[aggregateId] = allEventEntries;
+        _streams[streamName] = allEventEntries;
 
         PublishEvents(newEventEntries);
 

@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         }
 
         services.AddSingleton<IEventDatabase, InMemoryEventDatabase>();
+        services.AddSingleton<IStreamNameFactory, DefaultStreamNameFactory>();
 
         services.AddSingleton<ISubscriptions, Subscriptions>();
 
