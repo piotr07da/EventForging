@@ -22,7 +22,7 @@ public class DefaultEventTypeNameMapper : IEventTypeNameMapper
             }
         }
 
-        throw new EventForgingException(@$"Event CLR type for event '{eventName}' not found in specified assemblies.");
+        return null;
     }
 
     public string? TryGetName(Type eventType)
