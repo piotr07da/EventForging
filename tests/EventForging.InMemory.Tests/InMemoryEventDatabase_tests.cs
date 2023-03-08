@@ -91,9 +91,10 @@ public class when_ConfigureSerialization_and_UseCosmosDb
             {
                 c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(assembly));
             });
-            r.UseInMemory(c =>
+            r.UseInMemory(cc =>
             {
-                c.SerializationEnabled = serializationEnabled;
+                cc.SerializationEnabled = serializationEnabled;
+                cc.SetStreamNameFactory((t, aId) => $"tests-{t.Name}-{aId}");
             });
         });
         services.AddSingleton<EventDatabaseTestFixture>();

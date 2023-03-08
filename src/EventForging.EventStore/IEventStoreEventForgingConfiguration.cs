@@ -11,6 +11,13 @@ public interface IEventStoreEventForgingConfiguration
 
     IStreamNameFactory StreamNameFactory { get; }
 
+    void AddEventsSubscription(
+        string subscriptionName,
+        string streamName,
+        string groupName,
+        PersistentSubscriptionNakEventAction eventHandlingExceptionNakAction = PersistentSubscriptionNakEventAction.Retry,
+        ulong? startFrom = 0);
+
     /// <summary>
     ///     Allows to set custom stream name factory.
     /// </summary>
@@ -26,11 +33,4 @@ public interface IEventStoreEventForgingConfiguration
     ///     The second argument is an aggregate identifier.
     /// </param>
     void SetStreamNameFactory(Func<Type, string, string> streamNameFactory);
-
-    void AddEventsSubscription(
-        string subscriptionName,
-        string streamName,
-        string groupName,
-        PersistentSubscriptionNakEventAction eventHandlingExceptionNakAction = PersistentSubscriptionNakEventAction.Retry,
-        ulong? startFrom = 0);
 }

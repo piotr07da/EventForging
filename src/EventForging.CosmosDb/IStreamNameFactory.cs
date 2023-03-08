@@ -1,8 +1,6 @@
-﻿using System;
+﻿namespace EventForging.CosmosDb;
 
-namespace EventForging.CosmosDb;
-
-internal interface IStreamNameFactory
+public interface IStreamNameFactory
 {
     string Create(Type aggregateType, string aggregateId);
 }

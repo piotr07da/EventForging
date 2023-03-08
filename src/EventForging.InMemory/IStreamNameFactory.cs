@@ -1,6 +1,6 @@
 ﻿namespace EventForging.InMemory;
 
-internal interface IStreamNameFactory
+public interface IStreamNameFactory
 {
     string Create(Type aggregateType, string aggregateId);
 }
