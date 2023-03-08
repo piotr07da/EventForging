@@ -10,13 +10,15 @@ namespace EventForging.InMemory;
 internal sealed class InMemoryEventDatabase : IEventDatabase
 {
     private static readonly ConcurrentDictionary<string, IDictionary<Guid, EventEntry>> _streams = new();
+    private readonly IStreamNameFactory _streamNameFactory;
     private readonly IEventSerializer _serializer;
     private readonly IEventForgingConfiguration _configuration;
     private readonly IInMemoryEventForgingConfiguration _inMemoryConfiguration;
     private readonly ISubscriptions _subscriptions;
 
-    public InMemoryEventDatabase(IEventSerializer serializer, IEventForgingConfiguration configuration, IInMemoryEventForgingConfiguration inMemoryConfiguration, ISubscriptions subscriptions)
+    public InMemoryEventDatabase(IStreamNameFactory streamNameFactory, IEventSerializer serializer, IEventForgingConfiguration configuration, IInMemoryEventForgingConfiguration inMemoryConfiguration, ISubscriptions subscriptions)
     {
+        _streamNameFactory = streamNameFactory ?? throw new ArgumentNullException(nameof(streamNameFactory));
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _inMemoryConfiguration = inMemoryConfiguration ?? throw new ArgumentNullException(nameof(inMemoryConfiguration));
@@ -25,7 +27,8 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        _streams.TryGetValue(aggregateId, out var eventEntries);
+        var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
+        _streams.TryGetValue(streamName, out var eventEntries);
         eventEntries ??= new Dictionary<Guid, EventEntry>();
         foreach (var entry in eventEntries.Values.OrderBy(e => e.Version))
         {
@@ -49,7 +52,8 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
-        _streams.TryGetValue(aggregateId, out var currentEventEntries);
+        var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
+        _streams.TryGetValue(streamName, out var currentEventEntries);
         currentEventEntries ??= new Dictionary<Guid, EventEntry>();
 
         var actualVersion = currentEventEntries.Values.Count - 1;
@@ -101,7 +105,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
             if (expectedVersionNumber != actualVersion)
             {
-                throw new EventForgingUnexpectedVersionException(aggregateId, aggregateId, expectedVersion, lastReadAggregateVersion, actualVersion);
+                throw new EventForgingUnexpectedVersionException(aggregateId, streamName, expectedVersion, lastReadAggregateVersion, actualVersion);
             }
 
             foreach (var newEventEntry in newEventEntries)
@@ -112,12 +116,12 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
         _streams[aggregateId] = allEventEntries;
 
-        PublishEvents(newEventEntries, cancellationToken);
+        PublishEvents(newEventEntries);
 
         await Task.CompletedTask;
     }
 
-    private void PublishEvents(IReadOnlyCollection<EventEntry> eventEntries, CancellationToken cancellationToken)
+    private void PublishEvents(IReadOnlyCollection<EventEntry> eventEntries)
     {
         foreach (var subscription in _inMemoryConfiguration.EventSubscriptions)
         {
