@@ -26,7 +26,7 @@ public static class EventForgingRegistrationConfigurationExtensions
         services.AddSingleton<ICosmosDbProvider, CosmosDbProvider>();
         services.AddSingleton<IEventSerializer, JsonEventSerializer>();
         services.AddSingleton<IJsonSerializerOptionsProvider, CosmosJsonSerializerOptionsProvider>();
-        services.AddSingleton<IStreamNameFactory, DefaultStreamNameFactory>();
+        services.AddSingleton(configuration.StreamNameFactory);
 
         services.AddSingleton<IEventDatabase, CosmosDbEventDatabase>();
 

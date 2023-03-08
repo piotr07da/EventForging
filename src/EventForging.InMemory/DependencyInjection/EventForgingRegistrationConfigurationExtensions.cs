@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 // ReSharper disable once CheckNamespace
 namespace EventForging.InMemory;
 
-public static class ServiceCollectionExtensions
+public static class EventForgingRegistrationConfigurationExtensions
 {
     public static IEventForgingRegistrationConfiguration UseInMemory(this IEventForgingRegistrationConfiguration registrationConfiguration, Action<IInMemoryEventForgingConfiguration>? configurator = null)
     {
@@ -33,8 +33,9 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IEventSerializer, DummyEventSerializer>();
         }
 
+        services.AddSingleton(configuration.StreamNameFactory);
+
         services.AddSingleton<IEventDatabase, InMemoryEventDatabase>();
-        services.AddSingleton<IStreamNameFactory, DefaultStreamNameFactory>();
 
         services.AddSingleton<ISubscriptions, Subscriptions>();
 
