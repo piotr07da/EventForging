@@ -9,11 +9,11 @@ EventForging is MIT licensed.
 
 ## Features
 
-- InMemory mode
-- EventStore integration
-- CosmosDb integration
+- InMemory database
+- EventStore database integration
+- CosmosDb database integration
 - Opened for integration with other databases
-- Per command idempotent - ensures that the same command does not get processed more than once
+- Per command idempotency - ensures that the same command does not get processed more than once
 - No inheritance hell - there are no base classes, you don't have to inherit from anything
 
 ## Using EventForging
@@ -44,7 +44,7 @@ Every aggregate has to implement the `IEventForged` interface. The simplest form
 ```csharp
 public class Customer : IEventForged
 {
-    private Customer()
+    public Customer()
     {
         Events = Events.CreateFor(this);
     }
@@ -121,8 +121,8 @@ public sealed class SomethingHappendHandler : IEventHandler<SomethingHappend>
 Each database integration provides its own way to define which events will go to which subscription.
 Please see the [Configuration](#configuration) section.
 
-The is no built-in mechanism for dealing with exceptions.
-By default messages will be retried forever in case of an exception.
+Intentionally, there is no built-in mechanism for dealing with exceptions.
+By default, messages will be retried forever in case of an exception.
 Therefore it is important to catch exceptions and avoid `HandleAsync` failing.
 
 ## Configuration <a name="configuration"></a>
