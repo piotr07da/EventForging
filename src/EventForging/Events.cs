@@ -7,7 +7,7 @@ public sealed class Events
 
     private Events(EventApplier eventApplier)
     {
-        _eventApplier = eventApplier ?? throw new ArgumentNullException(nameof(eventApplier));
+        _eventApplier = eventApplier;
     }
 
     public object[] Get() => _events.ToArray();

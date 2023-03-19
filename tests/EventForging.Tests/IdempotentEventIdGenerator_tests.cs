@@ -8,7 +8,7 @@ namespace EventForging.Tests
     public class IdempotentEventIdGenerator_tests
     {
         [Fact]
-        public void generated_event_ids_from_single_initiatorId_shall_be_different()
+        public void all_generated_event_ids_from_a_single_initiatorId_shall_not_be_equal()
         {
             var initiatorId = Guid.NewGuid();
 
@@ -20,6 +20,12 @@ namespace EventForging.Tests
                 Assert.DoesNotContain(eventId, eventIds);
                 eventIds.Add(eventId);
             }
+        }
+
+        [Fact]
+        public void initiatorId_cannot_be_empty()
+        {
+            Assert.Throws<EventForgingException>(() => IdempotentEventIdGenerator.GenerateIdempotentEventId(Guid.Empty, 0));
         }
     }
 }

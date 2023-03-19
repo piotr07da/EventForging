@@ -9,6 +9,10 @@ public class DefaultEventTypeNameMapper : IEventTypeNameMapper
     public DefaultEventTypeNameMapper(params Assembly[] assemblies)
     {
         _assemblies = assemblies ?? throw new ArgumentNullException(nameof(assemblies));
+        if (_assemblies.Length == 0)
+        {
+            throw new ArgumentException("At least one assembly must be specified.", nameof(assemblies));
+        }
     }
 
     public Type? TryGetType(string eventName)

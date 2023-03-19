@@ -15,7 +15,7 @@ internal sealed class EventApplier
         {
             if (throwIfApplyActionNotFound)
             {
-                throw new InvalidOperationException($"Aggregate of type [{_target.GetType().Name}] has no [void Apply({eventType.Name} e)] method. Add and fill body of following method:{Environment.NewLine}{Environment.NewLine}private void Apply({eventType.Name} e){Environment.NewLine}{{{Environment.NewLine}}}{Environment.NewLine}");
+                throw new EventForgingException($"Aggregate of type [{_target.GetType().Name}] has no [void Apply({eventType.Name} e)] method. Add and fill body of following method:{Environment.NewLine}{Environment.NewLine}private void Apply({eventType.Name} e){Environment.NewLine}{{{Environment.NewLine}}}{Environment.NewLine}");
             }
 
             return;

@@ -1,4 +1,6 @@
 ﻿// ReSharper disable InconsistentNaming
+// ReSharper disable ConvertToConstant.Local
+// ReSharper disable ObjectCreationAsStatement
 
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -57,5 +59,14 @@ public class aggregate_tests
             await repository.GetAsync(Guid.NewGuid());
         });
         Assert.Equal("An aggregate class cannot be sealed.", ex.Message);
+    }
+
+    [Fact]
+    public void aggregate_has_to_have_private_Apply_method_for_the_event_emitted_by_itself()
+    {
+        Assert.Throws<EventForgingException>(() =>
+        {
+            NoApplyMethodAggregate.CreateEmittingAnEvent();
+        });
     }
 }

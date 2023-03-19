@@ -102,4 +102,13 @@ public class given_aggregate_in_database : IAsyncLifetime
         Assert.Equal(2, ex.LastReadVersion);
         Assert.Equal((AggregateVersion)3, ex.ActualVersion);
     }
+
+    [Fact]
+    public async Task when_reading_not_existing_aggregate_then_exception_thrown()
+    {
+        await Assert.ThrowsAnyAsync<AggregateNotFoundEventForgingException>(async () =>
+        {
+            await _repository.GetAsync(Guid.Empty);
+        });
+    }
 }
