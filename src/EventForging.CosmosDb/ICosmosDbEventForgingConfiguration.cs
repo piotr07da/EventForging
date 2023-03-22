@@ -9,6 +9,7 @@ public interface ICosmosDbEventForgingConfiguration
     string? ConnectionString { get; set; }
     IReadOnlyDictionary<Type, AggregateLocationConfiguration> AggregateLocations { get; }
     IReadOnlyList<SubscriptionConfiguration> Subscriptions { get; }
+    public bool CreateDatabasesAndContainersIfNotExist { get; set; }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
     bool IgnoreServerCertificateValidation { get; set; }

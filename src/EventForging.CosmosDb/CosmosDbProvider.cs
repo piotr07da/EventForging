@@ -104,7 +104,15 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
     {
         if (!_databases.TryGetValue(databaseName, out var database))
         {
-            database = await _client!.CreateDatabaseIfNotExistsAsync(databaseName, cancellationToken: cancellationToken);
+            if (_configuration.CreateDatabasesAndContainersIfNotExist)
+            {
+                database = await _client!.CreateDatabaseIfNotExistsAsync(databaseName, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                database = _client!.GetDatabase(databaseName);
+            }
+
             _databases.Add(databaseName, database);
         }
 
@@ -117,7 +125,15 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
 
         if (!_containers.TryGetValue(containerKey, out var container))
         {
-            container = await database.CreateContainerIfNotExistsAsync(containerName, partitionKeyPath, cancellationToken: cancellationToken);
+            if (_configuration.CreateDatabasesAndContainersIfNotExist)
+            {
+                container = await database.CreateContainerIfNotExistsAsync(containerName, partitionKeyPath, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                container = database.GetContainer(containerName);
+            }
+
             _containers.Add(containerKey, container);
         }
 
