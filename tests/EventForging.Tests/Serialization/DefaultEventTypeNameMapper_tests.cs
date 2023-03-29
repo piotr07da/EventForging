@@ -36,7 +36,10 @@ namespace EventForging.Tests.Serialization
         {
             Assert.Throws<ArgumentNullException>(() =>
             {
-                new DefaultEventTypeNameMapper(null);
+                // warning disabled because passing null is the intention of the test
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+                _ = new DefaultEventTypeNameMapper(null);
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
             });
         }
 
@@ -45,7 +48,7 @@ namespace EventForging.Tests.Serialization
         {
             Assert.Throws<ArgumentException>(() =>
             {
-                new DefaultEventTypeNameMapper();
+                _ = new DefaultEventTypeNameMapper();
             });
         }
     }
