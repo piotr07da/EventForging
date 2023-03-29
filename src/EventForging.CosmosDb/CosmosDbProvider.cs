@@ -1,6 +1,7 @@
 ﻿using EventForging.CosmosDb.Serialization;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 
 namespace EventForging.CosmosDb;
 
@@ -13,13 +14,19 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
     private readonly ICosmosDbEventForgingConfiguration _configuration;
     private readonly IEventSerializer _eventSerializer;
     private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
+    private readonly ILogger _logger;
     private CosmosClient? _client;
 
-    public CosmosDbProvider(ICosmosDbEventForgingConfiguration configuration, IEventSerializer eventSerializer, IJsonSerializerOptionsProvider serializerOptionsProvider)
+    public CosmosDbProvider(
+        ICosmosDbEventForgingConfiguration configuration,
+        IEventSerializer eventSerializer,
+        IJsonSerializerOptionsProvider serializerOptionsProvider,
+        ILoggerFactory? loggerFactory = null)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
+        _logger = loggerFactory.CreateEventForgingLogger();
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -27,7 +34,7 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         var clientOptions = new CosmosClientOptions
         {
             ConnectionMode = ConnectionMode.Direct,
-            Serializer = new EventForgingCosmosSerializer(_eventSerializer, _serializerOptionsProvider),
+            Serializer = new EventForgingCosmosSerializer(_eventSerializer, _serializerOptionsProvider, _logger),
         };
 
         if (_configuration.IgnoreServerCertificateValidation)

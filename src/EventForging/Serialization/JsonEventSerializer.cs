@@ -53,7 +53,14 @@ public sealed class JsonEventSerializer : IEventSerializer
     private object DeserializeEventData(string eventName, string jsonSerializedEventData)
     {
         var eventType = TryGetEventType(eventName);
-        return JsonSerializer.Deserialize(jsonSerializedEventData, eventType, SerializerOptions)!;
+        try
+        {
+            return JsonSerializer.Deserialize(jsonSerializedEventData, eventType, SerializerOptions)!;
+        }
+        catch (Exception ex)
+        {
+            throw new EventForgingException($"Cannot deserialize event of type '{eventType.FullName}' from the following string:{Environment.NewLine}{jsonSerializedEventData}{Environment.NewLine}Please, create a unit test and check if the '{eventType.FullName}' type is possible to be deserialized from the specified json using System.Text.Json.JsonSerializer.", ex);
+        }
     }
 
     private string GetEventName(Type eventType)

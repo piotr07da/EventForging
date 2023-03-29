@@ -1,6 +1,6 @@
 # EventForging
 
-EventForging is a free, open-source .NET framework for event sourced applications.
+EventForging is a free, open-source, lightweight .NET framework for event sourced applications.
 
 EventForging is MIT licensed.
 
@@ -14,6 +14,7 @@ EventForging is MIT licensed.
 - CosmosDb database integration
 - Opened for integration with other databases
 - Per command idempotency - ensures that the same command does not get processed more than once
+- Stores conversationId, messageId, and initiatorId for tracking and debugging purposes
 - No inheritance hell - there are no base classes, you don't have to inherit from anything
 
 ## Using EventForging
