@@ -37,9 +37,22 @@ public async Task Consume(ConsumeContext<RenameCustomer> context)
 
     var customer = await _repository.GetAsync(command.CustomerId);
     customer.Rename(CustomerName.FromValue(command.Name));
-    await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.Any, context.ConversationId, context.InitiatorId);
+    await _repository.SaveAsync(command.CustomerId, customer, ExpectedVersion.Read, context.ConversationId, context.InitiatorId);
 }
 ```
+Lets explain arguments of `SaveAsync` method:
+- aggregateId - an aggregate identifier - it can be either Guid or string
+- aggregate - the aggregate we are saving to the repository
+- expectedVersion
+  - pass `ExpectedVersion.None` if you expect that the aggregate does not exist in the repository - this is the case for newly created aggregates
+  - pass `ExpectedVersion.Any` if you do not want to check the version of an aggregate during save
+  - pass `ExpectedVersion.Get` if during the save of an aggregate its version shall match the version it had during its reading from the repository - it is similiar to `Any` but version cannot change between read and write providing consistency of operation executed on the aggregate
+  - pass a number if you expect specific version
+- conversationId - id of conversation
+- initiatorId - id of of initiator
+......... some operations on an aggregate might depend on each other....
+
+
 ### Domain Layer
 Every aggregate has to implement the `IEventForged` interface. The simplest form looks like this:
 ```csharp
