@@ -112,15 +112,27 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
+    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving()
     {
-        await _fixture.when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving();
+        await _fixture.when_new_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving();
     }
 
     [Fact]
-    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving()
+    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving()
     {
-        await _fixture.when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving();
+        await _fixture.when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving();
+    }
+
+    [Fact]
+    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving()
+    {
+        await _fixture.when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving();
+    }
+
+    [Fact]
+    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving()
+    {
+        await _fixture.when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving();
     }
 
     private Database GetDatabase()

@@ -50,7 +50,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
         await Task.CompletedTask;
     }
 
-    public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
         var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
         _streams.TryGetValue(streamName, out var currentEventEntries);
@@ -89,10 +89,14 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
         if (newEventEntries.Any())
         {
-            long expectedVersionNumber;
+            long? expectedVersionNumber;
             if (expectedVersion.IsAny)
             {
-                expectedVersionNumber = lastReadAggregateVersion;
+                expectedVersionNumber = null;
+            }
+            else if (expectedVersion.IsRetrieved)
+            {
+                expectedVersionNumber = retrievedVersion;
             }
             else if (expectedVersion.IsNone)
             {
@@ -103,9 +107,9 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
                 expectedVersionNumber = expectedVersion;
             }
 
-            if (expectedVersionNumber != actualVersion)
+            if (expectedVersionNumber.HasValue && expectedVersionNumber.Value != actualVersion)
             {
-                throw new EventForgingUnexpectedVersionException(aggregateId, streamName, expectedVersion, lastReadAggregateVersion, actualVersion);
+                throw new EventForgingUnexpectedVersionException(aggregateId, streamName, expectedVersion, retrievedVersion, actualVersion);
             }
 
             foreach (var newEventEntry in newEventEntries)

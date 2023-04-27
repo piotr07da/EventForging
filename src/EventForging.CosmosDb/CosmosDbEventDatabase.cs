@@ -46,7 +46,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
     }
 
-    public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
         if (events == null) throw new ArgumentNullException(nameof(events));
@@ -62,16 +62,20 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };
         var transaction = GetContainer<TAggregate>().CreateTransactionalBatch(new PartitionKey(streamId));
 
-        if (lastReadAggregateVersion.AggregateDoesNotExist)
+        if (retrievedVersion.AggregateDoesNotExist)
         {
             transaction.CreateItem(CreateStreamHeaderDocument(streamId, events.Count), requestOptions);
         }
         else
         {
-            long expectedHeaderVersion;
+            long? expectedHeaderVersion;
             if (expectedVersion.IsAny)
             {
-                expectedHeaderVersion = lastReadAggregateVersion;
+                expectedHeaderVersion = null;
+            }
+            else if (expectedVersion.IsRetrieved)
+            {
+                expectedHeaderVersion = retrievedVersion;
             }
             else if (expectedVersion.IsNone)
             {
@@ -84,13 +88,19 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                 expectedHeaderVersion = expectedVersion;
             }
 
-            transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, new TransactionalBatchPatchItemRequestOptions { EnableContentResponseOnWrite = false, FilterPredicate = $"FROM x WHERE x.version = {expectedHeaderVersion}", });
+            var headerPatchRequestOptions = new TransactionalBatchPatchItemRequestOptions { EnableContentResponseOnWrite = false, };
+            if (expectedHeaderVersion.HasValue)
+            {
+                headerPatchRequestOptions.FilterPredicate = $"FROM x WHERE x.version = {expectedHeaderVersion.Value}";
+            }
+
+            transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, headerPatchRequestOptions);
         }
 
         var eventItems = events.Select((e, eIx) =>
         {
             var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-            return CreateStreamEventDocument(streamId, eventId, lastReadAggregateVersion + eIx + 1L, e, conversationId, initiatorId, customProperties);
+            return CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, e, conversationId, initiatorId, customProperties);
         });
 
         foreach (var eventItem in eventItems)
@@ -111,7 +121,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
             var headerItem = await ReadHeaderAsync<TAggregate>(streamId, cancellationToken);
 
-            throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, lastReadAggregateVersion, headerItem.Version);
+            throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, retrievedVersion, headerItem.Version);
         }
 
         if (!response.IsSuccessStatusCode)

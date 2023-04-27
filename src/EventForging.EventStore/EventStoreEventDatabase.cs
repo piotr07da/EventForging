@@ -41,7 +41,7 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
         }
     }
 
-    public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion lastReadAggregateVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
         var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
         var eventsData = events.Select((e, eIx) =>
@@ -56,10 +56,14 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
 
         try
         {
-            StreamRevision sv;
+            StreamRevision? sv;
             if (expectedVersion.IsAny)
             {
-                sv = StreamRevision.FromInt64(lastReadAggregateVersion);
+                sv = null;
+            }
+            else if (expectedVersion.IsRetrieved)
+            {
+                sv = StreamRevision.FromInt64(retrievedVersion);
             }
             else if (expectedVersion.IsNone)
             {
@@ -70,11 +74,18 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
                 sv = StreamRevision.FromInt64(expectedVersion);
             }
 
-            await _client.AppendToStreamAsync(streamName, sv, eventsData, cancellationToken: cancellationToken);
+            if (sv.HasValue)
+            {
+                await _client.AppendToStreamAsync(streamName, sv.Value, eventsData, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                await _client.AppendToStreamAsync(streamName, StreamState.Any, eventsData, cancellationToken: cancellationToken);
+            }
         }
         catch (WrongExpectedVersionException e)
         {
-            throw new EventForgingUnexpectedVersionException(aggregateId, streamName, expectedVersion, lastReadAggregateVersion, e.ActualStreamRevision.ToInt64(), e);
+            throw new EventForgingUnexpectedVersionException(aggregateId, streamName, expectedVersion, retrievedVersion, e.ActualStreamRevision.ToInt64(), e);
         }
     }
 }

@@ -10,12 +10,14 @@ public readonly struct ExpectedVersion
     public long Value { get; }
     public bool IsNone => this == None;
     public bool IsAny => this == Any;
-    public bool IsDefined => !IsNone && !IsAny;
+    public bool IsRetrieved => this == Retrieved;
+    public bool IsDefined => Value >= 0;
 
     public override string ToString()
     {
         if (IsNone) return "None";
         if (IsAny) return "Any";
+        if (IsRetrieved) return "Retrieved";
         return Value.ToString();
     }
 
@@ -25,6 +27,7 @@ public readonly struct ExpectedVersion
 
     public static ExpectedVersion None { get; } = new(-1);
     public static ExpectedVersion Any { get; } = new(-2);
+    public static ExpectedVersion Retrieved { get; } = new(-3);
 
     public static bool operator ==(ExpectedVersion lhs, ExpectedVersion rhs) => lhs.Value == rhs.Value;
     public static bool operator !=(ExpectedVersion lhs, ExpectedVersion rhs) => !(lhs == rhs);

@@ -30,9 +30,9 @@ public class given_aggregate_with_some_operations_called
     }
 
     [Fact]
-    public async Task when_Save_to_and_Read_from_the_repository_then_aggregate_state_is_restored()
+    public async Task when_Save_to_and_Get_from_the_repository_then_aggregate_state_is_restored()
     {
-        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.None, Guid.Empty, Guid.Empty, null);
+        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.None, Guid.Empty, Guid.Empty);
 
         var readAggregate = await _repository.GetAsync(_aggregateId);
 
@@ -49,41 +49,54 @@ public class given_aggregate_with_some_operations_called
     {
         await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
-            await _repository.SaveAsync(_aggregateId, _aggregate, unexpectedVersion, Guid.Empty, Guid.Empty, null);
+            await _repository.SaveAsync(_aggregateId, _aggregate, unexpectedVersion, Guid.Empty, Guid.Empty);
         });
     }
 
     [Fact]
     public async Task when_Save_once_with_None_expected_version_then_does_not_throw_exception()
     {
-        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.None, Guid.Empty, Guid.Empty, null);
+        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.None, Guid.Empty, Guid.Empty);
     }
 
     [Fact]
     public async Task when_Save_twice_with_None_expected_version_then_throws_an_exception()
     {
-        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.None, Guid.Empty, Guid.Empty, null);
+        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.None, Guid.Empty, Guid.Empty);
 
         await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
-            await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.None, Guid.Empty, Guid.Empty, null);
+            await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.None, Guid.Empty, Guid.Empty);
         });
     }
 
     [Fact]
     public async Task when_Save_once_with_Any_expected_version_then_does_not_throw_exception()
     {
-        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Any, Guid.Empty, Guid.Empty, null);
+        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
     }
 
     [Fact]
-    public async Task when_Save_twice_with_Any_expected_version_then_throws_an_exception()
+    public async Task when_Save_twice_with_Any_expected_version_then_does_not_throw_exception()
     {
-        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Any, Guid.Empty, Guid.Empty, null);
+        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
+        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Any, Guid.Empty, Guid.Empty);
+    }
+
+    [Fact]
+    public async Task when_Save_once_with_Retrieved_expected_version_then_does_not_throw_exception()
+    {
+        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Retrieved, Guid.Empty, Guid.Empty);
+    }
+
+    [Fact]
+    public async Task when_Save_twice_with_Retrieved_expected_version_then_throws_an_exception()
+    {
+        await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Retrieved, Guid.Empty, Guid.Empty);
 
         await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
-            await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Any, Guid.Empty, Guid.Empty, null);
+            await _repository.SaveAsync(_aggregateId, _aggregate, ExpectedVersion.Retrieved, Guid.Empty, Guid.Empty);
         });
     }
 }

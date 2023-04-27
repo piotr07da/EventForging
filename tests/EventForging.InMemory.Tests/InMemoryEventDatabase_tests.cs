@@ -68,17 +68,33 @@ public class when_ConfigureSerialization_and_UseCosmosDb
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving(bool serializationEnabled)
+    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving(bool serializationEnabled)
     {
-        await Fixture(serializationEnabled).when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving();
+        await Fixture(serializationEnabled).when_new_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving();
     }
 
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving(bool serializationEnabled)
+    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving(bool serializationEnabled)
     {
-        await Fixture(serializationEnabled).when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving();
+        await Fixture(serializationEnabled).when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving(bool serializationEnabled)
+    {
+        await Fixture(serializationEnabled).when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving(bool serializationEnabled)
+    {
+        await Fixture(serializationEnabled).when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving();
     }
 
     private static EventDatabaseTestFixture Fixture(bool serializationEnabled)

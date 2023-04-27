@@ -140,9 +140,9 @@ public sealed class EventDatabaseTestFixture
         Assert.True(events[1] is UserApproved ua && ua.UserId == userId);
     }
 
-    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving([CallerMemberName] string callerMethod = "")
+    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving([CallerMemberName] string callerMethod = "")
     {
-        Assert.Equal(nameof(when_new_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving), callerMethod);
+        Assert.Equal(nameof(when_new_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving), callerMethod);
 
         var userId = Guid.NewGuid();
 
@@ -150,15 +150,28 @@ public sealed class EventDatabaseTestFixture
         var firstSaveInitiatorId = Guid.NewGuid();
         var secondSaveInitiatorId = Guid.NewGuid();
         await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Any, Guid.Empty, firstSaveInitiatorId);
+        await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Any, Guid.Empty, secondSaveInitiatorId);
+    }
+
+    public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving([CallerMemberName] string callerMethod = "")
+    {
+        Assert.Equal(nameof(when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving), callerMethod);
+
+        var userId = Guid.NewGuid();
+
+        var userToSave = User.Register(userId);
+        var firstSaveInitiatorId = Guid.NewGuid();
+        var secondSaveInitiatorId = Guid.NewGuid();
+        await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Retrieved, Guid.Empty, firstSaveInitiatorId);
         await Assert.ThrowsAsync<EventForgingUnexpectedVersionException>(async () =>
         {
-            await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Any, Guid.Empty, secondSaveInitiatorId);
+            await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Retrieved, Guid.Empty, secondSaveInitiatorId);
         });
     }
 
-    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving([CallerMemberName] string callerMethod = "")
+    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving([CallerMemberName] string callerMethod = "")
     {
-        Assert.Equal(nameof(when_existing_aggregate_saved_twice_with_different_initiator_ids_then_exception_thrown_during_second_saving), callerMethod);
+        Assert.Equal(nameof(when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving), callerMethod);
 
         var userId = Guid.NewGuid();
 
@@ -167,9 +180,23 @@ public sealed class EventDatabaseTestFixture
         var firstSaveInitiatorId = Guid.NewGuid();
         var secondSaveInitiatorId = Guid.NewGuid();
         await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Any, Guid.Empty, firstSaveInitiatorId);
+        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Any, Guid.Empty, secondSaveInitiatorId);
+    }
+
+    public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving([CallerMemberName] string callerMethod = "")
+    {
+        Assert.Equal(nameof(when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving), callerMethod);
+
+        var userId = Guid.NewGuid();
+
+        var existingUser = await prepare_existing_aggregate(userId);
+        existingUser.Approve();
+        var firstSaveInitiatorId = Guid.NewGuid();
+        var secondSaveInitiatorId = Guid.NewGuid();
+        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, firstSaveInitiatorId);
         await Assert.ThrowsAsync<EventForgingUnexpectedVersionException>(async () =>
         {
-            await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Any, Guid.Empty, secondSaveInitiatorId);
+            await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, secondSaveInitiatorId);
         });
     }
 

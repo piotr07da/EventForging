@@ -8,13 +8,13 @@ internal sealed class AggregateMetadata
     {
     }
 
-    public AggregateVersion ReadVersion { get; set; }
+    public AggregateVersion RetrievedVersion { get; set; }
 
     public static AggregateMetadata Default()
     {
         return new AggregateMetadata
         {
-            ReadVersion = AggregateVersion.NotExistingAggregate,
+            RetrievedVersion = AggregateVersion.NotExistingAggregate,
         };
     }
 }

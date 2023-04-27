@@ -17,6 +17,16 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     public async Task<TAggregate> GetAsync(string aggregateId, CancellationToken cancellationToken = default)
     {
+        return await TryGetAsync(aggregateId, cancellationToken) ?? throw new AggregateNotFoundEventForgingException(typeof(TAggregate), aggregateId);
+    }
+
+    public async Task<TAggregate?> TryGetAsync(Guid aggregateId, CancellationToken cancellationToken = default)
+    {
+        return await TryGetAsync(aggregateId.ToString(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<TAggregate?> TryGetAsync(string aggregateId, CancellationToken cancellationToken = default)
+    {
         var aggregate = AggregateProxyGenerator.Create<TAggregate>();
         var eventApplier = EventApplier.CreateFor(aggregate);
 
@@ -32,10 +42,10 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
         if (eventCount == 0)
         {
-            throw new AggregateNotFoundEventForgingException(typeof(TAggregate), aggregateId);
+            return null;
         }
 
-        aggregate.ConfigureAggregateMetadata(md => md.ReadVersion = eventCount - 1);
+        aggregate.ConfigureAggregateMetadata(md => md.RetrievedVersion = eventCount - 1);
 
         return aggregate;
     }
@@ -48,21 +58,21 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
     public async Task SaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
     {
         var aggregateMetadata = aggregate.GetAggregateMetadata();
-        var lastReadAggregateVersion = aggregateMetadata.ReadVersion;
+        var retrievedAggregateVersion = aggregateMetadata.RetrievedVersion;
 
-        if (expectedVersion.IsNone && lastReadAggregateVersion.AggregateExists)
+        if (expectedVersion.IsNone && retrievedAggregateVersion.AggregateExists)
         {
-            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, lastReadAggregateVersion, null);
+            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, retrievedAggregateVersion, null);
         }
 
-        if (expectedVersion.IsDefined && (lastReadAggregateVersion.AggregateDoesNotExist || expectedVersion != lastReadAggregateVersion))
+        if (expectedVersion.IsDefined && (retrievedAggregateVersion.AggregateDoesNotExist || expectedVersion != retrievedAggregateVersion))
         {
-            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, lastReadAggregateVersion, null);
+            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, retrievedAggregateVersion, null);
         }
 
         var newEvents = aggregate.Events.Get().ToArray();
         customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
         customProperties ??= new Dictionary<string, string>();
-        await _database.WriteAsync<TAggregate>(aggregateId, newEvents, lastReadAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
+        await _database.WriteAsync<TAggregate>(aggregateId, newEvents, retrievedAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
     }
 }
