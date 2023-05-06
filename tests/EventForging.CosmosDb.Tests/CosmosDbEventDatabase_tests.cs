@@ -99,19 +99,23 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
         await _fixture.when_existing_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
     }
 
-    [Fact(Skip = "TODO")]
+    // DO NOT WORK ON EMULATOR
+    [Fact]
+    [Trait("Category", "Flaky")]
     public async Task when_new_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
         await _fixture.when_new_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
     }
 
-    [Fact(Skip = "TODO")]
+    // DO NOT WORK ON EMULATOR
+    [Fact]
+    [Trait("Category", "Flaky")]
     public async Task when_existing_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
         await _fixture.when_existing_aggregate_saved_many_times_in_parallel_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();
     }
 
-    [Fact]
+    [Fact(Skip = "In CosmosDb ExpectedVersion.Any works the same as ExpectedVersion.Retrieved.")]
     public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving()
     {
         await _fixture.when_new_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving();
@@ -123,7 +127,7 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
         await _fixture.when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving();
     }
 
-    [Fact]
+    [Fact(Skip = "In CosmosDb ExpectedVersion.Any works the same as ExpectedVersion.Retrieved")]
     public async Task when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving()
     {
         await _fixture.when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Any_version_is_expected_then_NO_exception_thrown_during_second_saving();

@@ -39,7 +39,7 @@ namespace EventForging.DatabaseIntegrationTests.Common
 
             var user = User.RegisterWithName(userId, userName);
             user.Approve();
-            await _repository.SaveAsync(userId, user, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
+            await _repository.SaveAsync(userId, user, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
 
             await Task.WhenAny(tcs.Task, Task.Delay(timeout));
 
@@ -112,11 +112,11 @@ namespace EventForging.DatabaseIntegrationTests.Common
             });
 
             var user = User.RegisterWithName(userId, userName);
-            await _repository.SaveAsync(userId, user, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
+            await _repository.SaveAsync(userId, user, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
             await Task.Delay(TimeSpan.FromSeconds(2));
             user = await _repository.GetAsync(userId);
             user.Approve();
-            await _repository.SaveAsync(userId, user, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
+            await _repository.SaveAsync(userId, user, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
 
             await Task.WhenAny(tcs.Task, Task.Delay(timeout));
 

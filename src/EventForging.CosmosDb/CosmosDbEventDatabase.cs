@@ -68,13 +68,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
         else
         {
-            long? expectedHeaderVersion;
-            if (expectedVersion.IsAny)
+            long expectedHeaderVersion;
+            if (expectedVersion.IsAny || expectedVersion.IsRetrieved)
             {
-                expectedHeaderVersion = null;
-            }
-            else if (expectedVersion.IsRetrieved)
-            {
+                // IsAny is treated the same as IsRetrieved because event numbers are numbered using retrieved version. There is no way, at least as of 05/06/2023,
+                // to read version from header document and use read value in the same transaction.
                 expectedHeaderVersion = retrievedVersion;
             }
             else if (expectedVersion.IsNone)
@@ -88,11 +86,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                 expectedHeaderVersion = expectedVersion;
             }
 
-            var headerPatchRequestOptions = new TransactionalBatchPatchItemRequestOptions { EnableContentResponseOnWrite = false, };
-            if (expectedHeaderVersion.HasValue)
+            var headerPatchRequestOptions = new TransactionalBatchPatchItemRequestOptions
             {
-                headerPatchRequestOptions.FilterPredicate = $"FROM x WHERE x.version = {expectedHeaderVersion.Value}";
-            }
+                EnableContentResponseOnWrite = false,
+                FilterPredicate = $"FROM x WHERE x.version = {expectedHeaderVersion}",
+            };
 
             transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, headerPatchRequestOptions);
         }

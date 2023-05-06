@@ -44,6 +44,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "githubworkflows", "githubwo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.InMemory.Tests", "tests\EventForging.InMemory.Tests\EventForging.InMemory.Tests.csproj", "{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.MongoDb", "src\EventForging.MongoDb\EventForging.MongoDb.csproj", "{248F097B-4F33-43B1-91A7-F120BEE27154}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.MongoDb.Tests", "tests\EventForging.MongoDb.Tests\EventForging.MongoDb.Tests.csproj", "{77BE8B87-5AF9-4428-80BA-3869F762B8DA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -90,6 +94,14 @@ Global
 		{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CC1BA3EC-4601-49DF-8A60-DF394C67CCC1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{248F097B-4F33-43B1-91A7-F120BEE27154}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{248F097B-4F33-43B1-91A7-F120BEE27154}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{248F097B-4F33-43B1-91A7-F120BEE27154}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{248F097B-4F33-43B1-91A7-F120BEE27154}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77BE8B87-5AF9-4428-80BA-3869F762B8DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77BE8B87-5AF9-4428-80BA-3869F762B8DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77BE8B87-5AF9-4428-80BA-3869F762B8DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77BE8B87-5AF9-4428-80BA-3869F762B8DA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

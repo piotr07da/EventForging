@@ -45,7 +45,7 @@ Lets explain the arguments of the `SaveAsync` method:
 - `aggregate` - the aggregate that we are saving to the repository.
 - `expectedVersion` - the expected version of the aggregate in the repository.
   - Pass `ExpectedVersion.None` if you expect that the aggregate does not exist in the repository. This is the case for newly created aggregates.
-  - Pass `ExpectedVersion.Any` if you do not want to check the version of the aggregate during save.
+  - Pass `ExpectedVersion.Any` if you do not want to check the version of the aggregate during save. (This option is not supported in CosmosDb implementation and it behaves exactly as the `ExpectedVersion.Retrieved`.)
   - Pass `ExpectedVersion.Retrieved` if you want the version of the saved aggregate to match the version it had when it was retrieved from the repository. This is similar to Any, but ensures that the version of the aggregate does not change between retrieving and saving. It provides consistency for the operation executed on the aggregate.
   - Pass a number if you expect a specific version.
 - `conversationId` - the ID of the conversation.
@@ -175,7 +175,7 @@ Custom event type name mappers can be provided by implementing the IEventTypeNam
 c.Serialization.SetEventTypeNameMappers(new DefaultEventTypeNameMapper(_assembly));
 ```
 
-### InMemory configuration
+### InMemory
 InMemory provides an in-memory database that can be used for development or testing purposes.
 It can be configured using the following code:
 ```csharp
@@ -199,7 +199,7 @@ For more details, please see [Event Handling](#event-handling) section.
 c.AddEventSubscription("TestSubscription");
 ```
 
-### EventStore configuration
+### EventStore
 EventStore can be configured using following code:
 ```csharp
 r.UseEventStore(c =>
@@ -235,7 +235,8 @@ cc.AddEventsSubscription("TestSubscription", "TestSubscriptionStreamName", "Test
 ```
 The last parameter is used to specify how the exception that occured during event handling must be handled. It is EventStore feature.
 
-### CosmosDb configuration
+### CosmosDb
+
 CosmosDb can be configured using following code:
 ```csharp
 r.UseCosmosDb(c =>
@@ -270,6 +271,9 @@ For more details, please see [Event Handling](#event-handling) section.
 c.AddEventsSubscription("TestSubscriptionName", "DatabaseName", "EventsContainerName_1", "changeFeedName_1", null);
 c.AddEventsSubscription("TestSubscriptionName", "DatabaseName", "EventsContainerName_2", "changeFeedName_2", DateTime.UtcNow);
 ```
+
+#### ExpectedVersion.Any
+In CosmosDb implementation, `ExpectedVersion.Any` works the same as `ExpectedVersion.Retrieved`. This is due to transaction limitations in CosmosDb.
 
 ## Examples
 An example application can be found [here](https://github.com/piotr07da/EventForgingOutcomes-Sample).

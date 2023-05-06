@@ -23,7 +23,7 @@ public sealed class EventDatabaseTestFixture
         var userId = Guid.NewGuid();
 
         var newUser = User.Register(userId);
-        await _repository.SaveAsync(userId, newUser, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid());
+        await _repository.SaveAsync(userId, newUser, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
         var userAfterSave = await _repository.GetAsync(userId);
 
         Assert.Equal(userId, userAfterSave.Id);
@@ -37,7 +37,7 @@ public sealed class EventDatabaseTestFixture
         var userName = Guid.NewGuid().ToString();
 
         var newUser = User.RegisterWithName(userId, userName);
-        await _repository.SaveAsync(userId, newUser, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid());
+        await _repository.SaveAsync(userId, newUser, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
         var userAfterSave = await _repository.GetAsync(userId);
 
         Assert.Equal(userId, userAfterSave.Id);
@@ -52,7 +52,7 @@ public sealed class EventDatabaseTestFixture
 
         var existingUser = await prepare_existing_aggregate(userId);
         existingUser.Approve();
-        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid());
+        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
         var userAfterSave = await _repository.GetAsync(userId);
 
         Assert.Equal(userId, userAfterSave.Id);
@@ -67,8 +67,8 @@ public sealed class EventDatabaseTestFixture
 
         var userToSave = User.Register(userId);
         var initiatorId = Guid.NewGuid();
-        await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Any, Guid.Empty, initiatorId);
-        await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Any, Guid.Empty, initiatorId);
+        await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Retrieved, Guid.Empty, initiatorId);
+        await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Retrieved, Guid.Empty, initiatorId);
 
         var events = await GetEventsAsync(userId);
         Assert.Single(events);
@@ -84,8 +84,8 @@ public sealed class EventDatabaseTestFixture
         var existingUser = await prepare_existing_aggregate(userId);
         existingUser.Approve();
         var initiatorId = Guid.NewGuid();
-        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Any, Guid.Empty, initiatorId);
-        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Any, Guid.Empty, initiatorId);
+        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, initiatorId);
+        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, initiatorId);
 
         var events = await GetEventsAsync(userId);
         Assert.Equal(2, events.Length);
@@ -104,7 +104,7 @@ public sealed class EventDatabaseTestFixture
         var saveTasks = new List<Task>();
         for (var i = 0; i < 10; ++i)
         {
-            var saveTask = _repository.SaveAsync(userId, userToSave, ExpectedVersion.Any, Guid.Empty, initiatorId);
+            var saveTask = _repository.SaveAsync(userId, userToSave, ExpectedVersion.Retrieved, Guid.Empty, initiatorId);
             saveTasks.Add(saveTask);
         }
 
@@ -128,7 +128,7 @@ public sealed class EventDatabaseTestFixture
         for (var i = 0; i < 10; ++i)
         {
             var saveId = Guid.NewGuid().ToString();
-            var saveTask = _repository.SaveAsync(userId, existingUser, ExpectedVersion.Any, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", saveId }, });
+            var saveTask = _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, initiatorId, new Dictionary<string, string> { { "save", saveId }, });
             saveTasks.Add(saveTask);
         }
 
@@ -203,7 +203,7 @@ public sealed class EventDatabaseTestFixture
     private async Task<User> prepare_existing_aggregate(Guid userId)
     {
         var userToSave = User.Register(userId);
-        await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Any, Guid.Empty, Guid.NewGuid());
+        await _repository.SaveAsync(userId, userToSave, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
         var existingUser = await _repository.GetAsync(userId);
         return existingUser;
     }
