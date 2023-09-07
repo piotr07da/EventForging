@@ -43,6 +43,8 @@ public sealed class EventHandling_tests : IAsyncLifetime
                         cc.IgnoreServerCertificateValidation = true;
                         cc.ConnectionString = ConnectionString;
 
+                        cc.EnableEventPacking = true;
+
                         cc.AddAggregateLocations(DatabaseName, EventsContainerName, assembly);
 
                         cc.AddEventsSubscription(SubscriptionName, DatabaseName, EventsContainerName, ChangeFeedName, null);
@@ -72,10 +74,12 @@ public sealed class EventHandling_tests : IAsyncLifetime
         await db.DeleteAsync();
     }
 
-    [Fact]
-    public async Task when_aggregate_saved_then_events_handled()
+    [Theory]
+    [InlineData(50)]
+    [InlineData(250)]
+    public async Task when_aggregate_saved_then_events_handled(int amountOfCounterEvents)
     {
-        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(15));
+        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(20), amountOfCounterEvents);
     }
 
     [Fact]

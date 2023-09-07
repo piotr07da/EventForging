@@ -13,6 +13,7 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
     public bool IgnoreServerCertificateValidation { get; set; }
     public IReadOnlyList<SubscriptionConfiguration> Subscriptions => _subscriptions;
     public bool CreateDatabasesAndContainersIfNotExist { get; set; } = true;
+    public bool EnableEventPacking { get; set; } = false;
     public IStreamNameFactory StreamNameFactory { get; private set; } = new DefaultStreamNameFactory();
 
     public void AddAggregateLocations(string databaseName, string eventsContainerName, params Type[] aggregateTypes)

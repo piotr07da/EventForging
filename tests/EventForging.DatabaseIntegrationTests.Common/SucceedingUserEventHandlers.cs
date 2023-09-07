@@ -6,6 +6,7 @@ namespace EventForging.DatabaseIntegrationTests.Common;
 public sealed class SucceedingUserEventHandlers :
     IEventHandler<UserRegistered>,
     IEventHandler<UserNamed>,
+    IEventHandler<UserCounterChanged>,
     IEventHandler<UserApproved>
 {
     private static readonly IDictionary<Guid, Action<object, EventInfo>> _onEventHandled = new ConcurrentDictionary<Guid, Action<object, EventInfo>>();
@@ -19,6 +20,12 @@ public sealed class SucceedingUserEventHandlers :
     }
 
     public Task HandleAsync(UserNamed e, EventInfo ei, CancellationToken cancellationToken)
+    {
+        if (_onEventHandled.TryGetValue(e.UserId, out var onEventHandled)) onEventHandled(e, ei);
+        return Task.CompletedTask;
+    }
+    
+    public Task HandleAsync(UserCounterChanged e, EventInfo ei, CancellationToken cancellationToken)
     {
         if (_onEventHandled.TryGetValue(e.UserId, out var onEventHandled)) onEventHandled(e, ei);
         return Task.CompletedTask;

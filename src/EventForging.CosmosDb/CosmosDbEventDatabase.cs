@@ -9,20 +9,25 @@ namespace EventForging.CosmosDb;
 
 internal sealed class CosmosDbEventDatabase : IEventDatabase
 {
+    public const int MaxNumberOfUnpackedEventsInTransaction = 99;
+
     private readonly ICosmosDbProvider _cosmosDbProvider;
     private readonly IStreamNameFactory _streamNameFactory;
     private readonly IEventForgingConfiguration _configuration;
+    private readonly ICosmosDbEventForgingConfiguration _cosmosConfiguration;
     private readonly ILogger _logger;
 
     public CosmosDbEventDatabase(
         ICosmosDbProvider cosmosDbProvider,
         IStreamNameFactory streamNameFactory,
         IEventForgingConfiguration configuration,
+        ICosmosDbEventForgingConfiguration cosmosConfiguration,
         ILoggerFactory? loggerFactory = null)
     {
         _cosmosDbProvider = cosmosDbProvider ?? throw new ArgumentNullException(nameof(cosmosDbProvider));
         _streamNameFactory = streamNameFactory ?? throw new ArgumentNullException(nameof(streamNameFactory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _cosmosConfiguration = cosmosConfiguration ?? throw new ArgumentNullException(nameof(cosmosConfiguration));
         _logger = loggerFactory.CreateEventForgingLogger();
     }
 
@@ -32,16 +37,31 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
 
-        var iterator = GetContainer<TAggregate>().GetItemQueryIterator<EventDocument>($"SELECT * FROM x WHERE x.documentType = '{nameof(DocumentType.Event)}' ORDER BY x.eventNumber", requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
+        var container = GetContainer<TAggregate>();
+
+        var iterator = container.GetItemQueryIterator<MasterDocument>($"SELECT * FROM x WHERE x.documentType = '{nameof(DocumentType.Event)}' OR x.documentType = '{nameof(DocumentType.EventsPacket)}' ORDER BY x.eventNumber", requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
 
         while (iterator.HasMoreResults)
         {
             var page = await iterator.ReadNextAsync(cancellationToken);
-
-            var events = page.Select(ed => ed.Data ?? throw new EventForgingException($"Event {ed.Id ?? "NULL"} has no data.")).ToArray();
-            foreach (var e in events)
+            foreach (var masterDocument in page)
             {
-                yield return e;
+                switch (masterDocument.DocumentType)
+                {
+                    case DocumentType.Event:
+                        var eventDocument = masterDocument.EventDocument!;
+                        yield return eventDocument.Data ?? throw new EventForgingException($"Event {eventDocument.Id ?? "NULL"} has no data.");
+                        break;
+
+                    case DocumentType.EventsPacket:
+                        var eventsPacketDocument = masterDocument.EventsPacketDocument!;
+                        foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
+                        {
+                            yield return e.Data ?? throw new EventForgingException($"Event {e.EventId} has no data.");
+                        }
+
+                        break;
+                }
             }
         }
     }
@@ -50,12 +70,6 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
         if (events == null) throw new ArgumentNullException(nameof(events));
-        if (events.Count > 99)
-        {
-            // https://docs.microsoft.com/en-us/azure/cosmos-db/sql/transactional-batch
-            // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved.
-            throw new ArgumentOutOfRangeException(nameof(events), "Max number of events is 99.");
-        }
 
         var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
 
@@ -63,9 +77,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         var transaction = GetContainer<TAggregate>().CreateTransactionalBatch(new PartitionKey(streamId));
 
         if (retrievedVersion.AggregateDoesNotExist)
-        {
             transaction.CreateItem(CreateStreamHeaderDocument(streamId, events.Count), requestOptions);
-        }
         else
         {
             long expectedHeaderVersion;
@@ -82,9 +94,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                 expectedHeaderVersion = -1L;
             }
             else
-            {
                 expectedHeaderVersion = expectedVersion;
-            }
 
             var headerPatchRequestOptions = new TransactionalBatchPatchItemRequestOptions
             {
@@ -95,15 +105,49 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, headerPatchRequestOptions);
         }
 
-        var eventItems = events.Select((e, eIx) =>
+        if (events.Count <= MaxNumberOfUnpackedEventsInTransaction)
         {
-            var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-            return CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, e, conversationId, initiatorId, customProperties);
-        });
+            for (var eIx = 0; eIx < events.Count; ++eIx)
+            {
+                var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+                var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, events[eIx], conversationId, initiatorId, customProperties);
+                transaction.CreateItem(eventDocument, requestOptions);
+            }
+        }
+        else if (_cosmosConfiguration.EnableEventPacking)
+        {
+            var eventPackets = events.SplitEvenly(MaxNumberOfUnpackedEventsInTransaction);
+            var eIx = 0;
+            foreach (var ep in eventPackets)
+            {
+                var epdEvents = new List<EventsPacketDocument.Event>();
+                foreach (var e in ep)
+                {
+                    var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
 
-        foreach (var eventItem in eventItems)
+                    var epdEvent = new EventsPacketDocument.Event
+                    {
+                        EventId = eventId,
+                        EventNumber = retrievedVersion + eIx + 1L,
+                        Data = e,
+                    };
+
+                    epdEvents.Add(epdEvent);
+                    ++eIx;
+                }
+
+                var eventsPackageDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
+
+                transaction.CreateItem(eventsPackageDocument, requestOptions);
+
+                ++eIx;
+            }
+        }
+        else
         {
-            transaction.CreateItem(eventItem, requestOptions);
+            // https://docs.microsoft.com/en-us/azure/cosmos-db/sql/transactional-batch
+            // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved.
+            throw new ArgumentOutOfRangeException(nameof(events), $"Max number of events is {MaxNumberOfUnpackedEventsInTransaction}.");
         }
 
         var response = await transaction.ExecuteAsync(cancellationToken);
@@ -130,8 +174,8 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     {
         try
         {
-            var result = await GetContainer<TAggregate>().ReadItemAsync<HeaderDocument>(HeaderDocument.CreateId(streamId), new PartitionKey(streamId), cancellationToken: cancellationToken);
-            return result.Resource;
+            var result = await GetContainer<TAggregate>().ReadItemAsync<MasterDocument>(HeaderDocument.CreateId(streamId), new PartitionKey(streamId), cancellationToken: cancellationToken);
+            return result.Resource.HeaderDocument!;
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -142,9 +186,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     private async Task<bool> CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(string aggregateId, Guid initiatorId, CancellationToken cancellationToken = default)
     {
         if (initiatorId == Guid.Empty)
-        {
             return false;
-        }
 
         var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
 
@@ -163,6 +205,10 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         return _cosmosDbProvider.GetAggregateContainer<TAggregate>();
     }
 
+    private static EventsPacketDocument CreateStreamEventsPacketDocument(string streamId, IReadOnlyList<EventsPacketDocument.Event> events, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
+    {
+        return new EventsPacketDocument(streamId, events, new EventMetadata(conversationId, initiatorId, customProperties));
+    }
 
     private static EventDocument CreateStreamEventDocument(string streamId, Guid eventId, long eventNumber, object eventData, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
     {

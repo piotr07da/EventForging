@@ -1,41 +1,41 @@
 name: EventForging
 env:
-  EVENT_FORGING_VERSION: 1.0.19
+  EVENT_FORGING_VERSION: 1.0.20
 on:
   workflow_dispatch:
   push:
     branches:
-    - 'master'
+      - 'master'
     paths:
-    - 'src/**'
-    - 'tests/**'
-    - 'EventForging.sln'
+      - 'src/**'
+      - 'tests/**'
+      - 'EventForging.sln'
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '7.0.x'
-    - name: Restore packages
-      run: dotnet restore
-    - name: Build
-      run: dotnet build -c Release --no-restore
-    - name: Test EventForging.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal
-      working-directory: tests/EventForging.Tests
-    - name: Test EventForging.InMemory.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal
-      working-directory: tests/EventForging.InMemory.Tests
-    - name: Test EventForging.EventStore.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter "Category!=Integration&Category!=Flaky"
-      working-directory: tests/EventForging.EventStore.Tests
-    - name: Test EventForging.CosmosDb.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter "Category!=Integration&Category!=Flaky"
-      working-directory: tests/EventForging.CosmosDb.Tests
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+      - name: Restore packages
+        run: dotnet restore
+      - name: Build
+        run: dotnet build -c Release --no-restore
+      - name: Test EventForging.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal
+        working-directory: tests/EventForging.Tests
+      - name: Test EventForging.InMemory.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal
+        working-directory: tests/EventForging.InMemory.Tests
+      - name: Test EventForging.EventStore.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter "Category!=Integration&Category!=Flaky"
+        working-directory: tests/EventForging.EventStore.Tests
+      - name: Test EventForging.CosmosDb.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter "Category!=Integration&Category!=Flaky"
+        working-directory: tests/EventForging.CosmosDb.Tests
   test-eventstore:
     runs-on: ubuntu-latest
     needs: build
@@ -51,22 +51,22 @@ jobs:
           EVENTSTORE_ENABLE_EXTERNAL_TCP: true
           EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP: true
         ports:
-        - "1113:1113"
-        - "2113:2113"
+          - "1113:1113"
+          - "2113:2113"
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '7.0.x'
-    - name: Restore packages
-      run: dotnet restore
-    - name: Build
-      run: dotnet build -c Release --no-restore
-    - name: Test EventForging.EventStore.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category=Integration
-      working-directory: tests/EventForging.EventStore.Tests
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+      - name: Restore packages
+        run: dotnet restore
+      - name: Build
+        run: dotnet build -c Release --no-restore
+      - name: Test EventForging.EventStore.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category=Integration
+        working-directory: tests/EventForging.EventStore.Tests
   test-cosmosdb:
     if: false # As of February 2023, working with the Cosmos DB emulator is pure pain. It randomly returns 404s, 408s, and 503s, causing 70% of builds to fail, although all tests pass on the actual Cosmos DB.
     runs-on: ubuntu-18.04 # Emulator of CosmosDb works only on ubuntu-18.04. On other versions it randomly (99% of times) returns 503 if AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE is defined or "Connection refused" if it is not defined.
@@ -79,62 +79,62 @@ jobs:
           AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: false
           AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE: 127.0.0.1
         ports:
-        - "8081:8081"
-        - "10251:10251"
-        - "10252:10252"
-        - "10253:10253"
-        - "10254:10254"
-        - "10255:10255"
+          - "8081:8081"
+          - "10251:10251"
+          - "10252:10252"
+          - "10253:10253"
+          - "10254:10254"
+          - "10255:10255"
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '7.0.x'
-    - name: Restore packages
-      run: dotnet restore
-    - name: Build
-      run: dotnet build -c Release --no-restore
-    - name: Test EventForging.CosmosDb.Tests
-      run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category=Integration
-      working-directory: tests/EventForging.CosmosDb.Tests
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+      - name: Restore packages
+        run: dotnet restore
+      - name: Build
+        run: dotnet build -c Release --no-restore
+      - name: Test EventForging.CosmosDb.Tests
+        run: dotnet test -c Release --no-restore --no-build --verbosity normal --filter Category=Integration
+        working-directory: tests/EventForging.CosmosDb.Tests
   publish:
     runs-on: ubuntu-latest
     needs:
-    - build
-    - test-eventstore
+      - build
+      - test-eventstore
     #- test-cosmosdb
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '7.0.x'
-    - name: Show Version
-      run: echo "${EVENT_FORGING_VERSION}"
-    - name: Package EventForging
-      run: dotnet pack EventForging.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
-      working-directory: src/EventForging
-    - name: Publish EventForging
-      run: dotnet nuget push EventForging.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-      working-directory: pkg
-    - name: Package EventForging.InMemory
-      run: dotnet pack EventForging.InMemory.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
-      working-directory: src/EventForging.InMemory
-    - name: Publish EventForging.InMemory
-      run: dotnet nuget push EventForging.InMemory.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-      working-directory: pkg
-    - name: Package EventForging.EventStore
-      run: dotnet pack EventForging.EventStore.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
-      working-directory: src/EventForging.EventStore
-    - name: Publish EventForging.EventStore
-      run: dotnet nuget push EventForging.EventStore.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-      working-directory: pkg
-    - name: Package EventForging.CosmosDb
-      run: dotnet pack EventForging.CosmosDb.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
-      working-directory: src/EventForging.CosmosDb
-    - name: Publish EventForging.CosmosDb
-      run: dotnet nuget push EventForging.CosmosDb.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-      working-directory: pkg
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+      - name: Show Version
+        run: echo "${EVENT_FORGING_VERSION}"
+      - name: Package EventForging
+        run: dotnet pack EventForging.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
+        working-directory: src/EventForging
+      - name: Publish EventForging
+        run: dotnet nuget push EventForging.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
+      - name: Package EventForging.InMemory
+        run: dotnet pack EventForging.InMemory.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
+        working-directory: src/EventForging.InMemory
+      - name: Publish EventForging.InMemory
+        run: dotnet nuget push EventForging.InMemory.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
+      - name: Package EventForging.EventStore
+        run: dotnet pack EventForging.EventStore.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
+        working-directory: src/EventForging.EventStore
+      - name: Publish EventForging.EventStore
+        run: dotnet nuget push EventForging.EventStore.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg
+      - name: Package EventForging.CosmosDb
+        run: dotnet pack EventForging.CosmosDb.csproj /p:Version=${EVENT_FORGING_VERSION} --output ${GITHUB_WORKSPACE}/pkg
+        working-directory: src/EventForging.CosmosDb
+      - name: Publish EventForging.CosmosDb
+        run: dotnet nuget push EventForging.CosmosDb.${EVENT_FORGING_VERSION}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        working-directory: pkg

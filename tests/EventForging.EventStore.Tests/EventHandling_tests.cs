@@ -102,7 +102,7 @@ fromCategory('{EventsStreamNamePrefix}')
     [Fact]
     public async Task when_aggregate_saved_then_events_handled()
     {
-        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(5));
+        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(5), 200);
     }
 
     [Fact]

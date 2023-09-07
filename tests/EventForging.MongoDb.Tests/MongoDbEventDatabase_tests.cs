@@ -60,9 +60,9 @@ public class MongoDbEventDatabase_tests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated()
+    public async Task when_new_aggregate_with_more_than_one_event_saved_then_read_aggregate_rehydrated()
     {
-        await _fixture.when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated();
+        await _fixture.when_new_aggregate_with_more_than_one_event_saved_then_read_aggregate_rehydrated(10);
     }
 
     [Fact]

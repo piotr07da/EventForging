@@ -37,6 +37,7 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
                     {
                         cc.IgnoreServerCertificateValidation = true;
                         cc.ConnectionString = ConnectionString;
+                        cc.EnableEventPacking = true;
                         cc.AddAggregateLocations(DatabaseName, ContainerName, assembly);
                         cc.SetStreamNameFactory((t, aId) => $"tests-{t.Name}-{aId}");
                     });
@@ -75,10 +76,12 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
         await _fixture.when_new_aggregate_saved_then_read_aggregate_rehydrated();
     }
 
-    [Fact]
-    public async Task when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated()
+    [Theory]
+    [InlineData(50)]
+    [InlineData(250)]
+    public async Task when_new_aggregate_with_more_than_one_event_saved_then_read_aggregate_rehydrated(int amountOfCounterEvents)
     {
-        await _fixture.when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated();
+        await _fixture.when_new_aggregate_with_more_than_one_event_saved_then_read_aggregate_rehydrated(amountOfCounterEvents);
     }
 
     [Fact]

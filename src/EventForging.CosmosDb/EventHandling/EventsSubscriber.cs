@@ -29,7 +29,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             var container = _cosmosDbProvider.GetContainer(subscription.DatabaseName, subscription.EventsContainerName);
 
             var changeFeedProcessorBuilder = container
-                .GetChangeFeedProcessorBuilder<EventDocument>(
+                .GetChangeFeedProcessorBuilder<MasterDocument>(
                     subscription.ChangeFeedName,
                     (_, changes, ct) => HandleChangesAsync(subscription.SubscriptionName, changes, ct))
                 .WithInstanceName(Environment.MachineName)
@@ -64,28 +64,33 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         }
     }
 
-    private async Task HandleChangesAsync(string subscriptionName, IReadOnlyCollection<EventDocument> changes, CancellationToken cancellationToken)
+    private async Task HandleChangesAsync(string subscriptionName, IReadOnlyCollection<MasterDocument> changes, CancellationToken cancellationToken)
     {
         const string stopRequestedExceptionMessage = "Stop has been requested. Cannot finish processing for received changes. Batch of changes will not be confirmed and will be redelivered.";
 
-        foreach (var eventDocument in changes)
+        foreach (var masterDocument in changes)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            var eventDispatchDatas = ExtractEventDispatchData(masterDocument).ToArray();
 
-            if (_stopRequested)
+            foreach (var eventDispatchData in eventDispatchDatas)
             {
-                // Throw inside the loop to fail as soon as possible.
-                throw new EventForgingException(stopRequestedExceptionMessage);
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            try
-            {
-                await DispatchAsync(subscriptionName, eventDocument, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Event handling failed. Subscription: '{subscriptionName}'; StreamId: '{eventDocument.StreamId}', EventId: '{eventDocument.Id}'.");
-                throw;
+                if (_stopRequested)
+                {
+                    // Throw inside the loop to fail as soon as possible.
+                    throw new EventForgingException(stopRequestedExceptionMessage);
+                }
+
+                try
+                {
+                    await _eventDispatcher.DispatchAsync(subscriptionName, eventDispatchData.Data, eventDispatchData.EventInfo, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Document handling failed. Subscription: '{subscriptionName}'; DocumentType: '{masterDocument.DocumentType}'; StreamId: '{masterDocument.StreamId}'; DocumentId: '{masterDocument.Id}'.");
+                    throw;
+                }
             }
         }
 
@@ -98,13 +103,26 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         }
     }
 
-    private async Task DispatchAsync(string subscriptionName, EventDocument eventDocument, CancellationToken cancellationToken)
+    private IEnumerable<EventDispatchData> ExtractEventDispatchData(MasterDocument masterDocument)
     {
-        if (eventDocument.DocumentType == DocumentType.Event)
+        if (masterDocument.DocumentType == DocumentType.Event)
         {
+            var eventDocument = masterDocument.EventDocument!;
             var md = eventDocument.Metadata;
             var ei = new EventInfo(Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
-            await _eventDispatcher.DispatchAsync(subscriptionName, eventDocument.Data!, ei, cancellationToken);
+            yield return new EventDispatchData(eventDocument.Data!, ei);
+        }
+        else if (masterDocument.DocumentType == DocumentType.EventsPacket)
+        {
+            var eventsPacketDocument = masterDocument.EventsPacketDocument!;
+            var md = eventsPacketDocument.Metadata;
+            var ei = new EventInfo(Guid.Parse(eventsPacketDocument.Id!), eventsPacketDocument.Events.First().EventNumber, eventsPacketDocument.Events.First().EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+            foreach (var e in eventsPacketDocument.Events)
+            {
+                yield return new EventDispatchData(e.Data!, ei);
+            }
         }
     }
+
+    private record EventDispatchData(object Data, EventInfo EventInfo);
 }

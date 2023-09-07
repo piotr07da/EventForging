@@ -29,19 +29,20 @@ public sealed class EventDatabaseTestFixture
         Assert.Equal(userId, userAfterSave.Id);
     }
 
-    public async Task when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated([CallerMemberName] string callerMethod = "")
+    public async Task when_new_aggregate_with_more_than_one_event_saved_then_read_aggregate_rehydrated(int amountOfCounterEvents, [CallerMemberName] string callerMethod = "")
     {
-        Assert.Equal(nameof(when_new_aggregate_with_two_events_saved_then_read_aggregate_rehydrated), callerMethod);
+        Assert.Equal(nameof(when_new_aggregate_with_more_than_one_event_saved_then_read_aggregate_rehydrated), callerMethod);
 
         var userId = Guid.NewGuid();
         var userName = Guid.NewGuid().ToString();
 
-        var newUser = User.RegisterWithName(userId, userName);
+        var newUser = User.RegisterWithName(userId, userName, amountOfCounterEvents);
         await _repository.SaveAsync(userId, newUser, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
         var userAfterSave = await _repository.GetAsync(userId);
 
         Assert.Equal(userId, userAfterSave.Id);
         Assert.Equal(userName, userAfterSave.Name);
+        Assert.Equal(amountOfCounterEvents - 1, userAfterSave.Counter);
     }
 
     public async Task when_existing_aggregate_saved_then_read_aggregate_rehydrated([CallerMemberName] string callerMethod = "")
@@ -213,9 +214,7 @@ public sealed class EventDatabaseTestFixture
         var eventsAsyncEnumerable = _eventDatabase.ReadAsync<User>(userId.ToString());
         var events = new List<object>();
         await foreach (var e in eventsAsyncEnumerable)
-        {
             events.Add(e);
-        }
 
         return events.ToArray();
     }

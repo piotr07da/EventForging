@@ -12,20 +12,21 @@ namespace EventForging.DatabaseIntegrationTests.Common
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         }
 
-        public async Task when_aggregate_saved_then_events_handled(TimeSpan timeout, [CallerMemberName] string callerMethod = "")
+        public async Task when_aggregate_saved_then_events_handled(TimeSpan timeout, int amountOfCounterEvents, [CallerMemberName] string callerMethod = "")
         {
             Assert.Equal(nameof(when_aggregate_saved_then_events_handled), callerMethod);
 
             var userId = Guid.NewGuid();
             var userName = $"NAME_{Guid.NewGuid()}";
 
-            bool IsExpectedUser(SucceedingUserReadModel u) => u.Id == userId && u.Name == userName && u.Approved;
+            bool IsExpectedUser(SucceedingUserReadModel u) => u.Id == userId && u.Name == userName && u.Counter == amountOfCounterEvents - 1 && u.Approved;
 
             var tcs = new TaskCompletionSource();
             SucceedingUserEventHandlers.RegisterOnEventHandled(userId, (e, _) =>
             {
                 if (e is UserRegistered userRegistered) ReadModel.AddOrUpdateSucceedingReadModel(userRegistered.UserId, u => u.Id = userRegistered.UserId);
                 if (e is UserNamed userNamed) ReadModel.AddOrUpdateSucceedingReadModel(userNamed.UserId, u => u.Name = userNamed.Name);
+                if (e is UserCounterChanged userCounterChanged) ReadModel.AddOrUpdateSucceedingReadModel(userCounterChanged.UserId, u => u.Counter = userCounterChanged.Counter);
                 if (e is UserApproved userApproved) ReadModel.AddOrUpdateSucceedingReadModel(userApproved.UserId, u => u.Approved = true);
 
                 if (ReadModel.HasSucceedingReadModelUser(userId, IsExpectedUser))
@@ -37,7 +38,7 @@ namespace EventForging.DatabaseIntegrationTests.Common
                 }
             });
 
-            var user = User.RegisterWithName(userId, userName);
+            var user = User.RegisterWithName(userId, userName, amountOfCounterEvents);
             user.Approve();
             await _repository.SaveAsync(userId, user, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
 
