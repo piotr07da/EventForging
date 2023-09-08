@@ -120,27 +120,35 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             var eIx = 0;
             foreach (var ep in eventPackets)
             {
-                var epdEvents = new List<EventsPacketDocument.Event>();
-                foreach (var e in ep)
+                if (ep.Count == 1)
                 {
                     var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-
-                    var epdEvent = new EventsPacketDocument.Event
-                    {
-                        EventId = eventId,
-                        EventNumber = retrievedVersion + eIx + 1L,
-                        Data = e,
-                    };
-
-                    epdEvents.Add(epdEvent);
+                    var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, ep[0], conversationId, initiatorId, customProperties);
+                    transaction.CreateItem(eventDocument, requestOptions);
                     ++eIx;
                 }
+                else
+                {
+                    var epdEvents = new List<EventsPacketDocument.Event>();
+                    foreach (var e in ep)
+                    {
+                        var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
 
-                var eventsPackageDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
+                        var epdEvent = new EventsPacketDocument.Event
+                        {
+                            EventId = eventId,
+                            EventNumber = retrievedVersion + eIx + 1L,
+                            Data = e,
+                        };
 
-                transaction.CreateItem(eventsPackageDocument, requestOptions);
+                        epdEvents.Add(epdEvent);
+                        ++eIx;
+                    }
 
-                ++eIx;
+                    var eventsPackageDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
+
+                    transaction.CreateItem(eventsPackageDocument, requestOptions);
+                }
             }
         }
         else

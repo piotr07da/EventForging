@@ -77,8 +77,8 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(50)]
-    [InlineData(250)]
+    [InlineData(33)]
+    [InlineData(133)]
     public async Task when_new_aggregate_with_more_than_one_event_saved_then_read_aggregate_rehydrated(int amountOfCounterEvents)
     {
         await _fixture.when_new_aggregate_with_more_than_one_event_saved_then_read_aggregate_rehydrated(amountOfCounterEvents);
