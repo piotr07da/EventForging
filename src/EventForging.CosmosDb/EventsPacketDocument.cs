@@ -46,6 +46,7 @@ internal sealed class EventsPacketDocument : IDocument
             StreamId = StreamId,
             Id = Id,
             DocumentType = DocumentType,
+            EventNumber = EventNumber,
             Events = Events.Select(e => e.Clone()).ToArray(),
             Metadata = Metadata,
         };
