@@ -11,9 +11,12 @@ internal sealed class EventsPacketDocument : IDocument
 
     public EventsPacketDocument(string streamId, IReadOnlyList<Event> events, EventMetadata metadata)
     {
+        var firstEvent = events.First();
+
         StreamId = streamId;
-        Id = events.First().EventId.ToString();
+        Id = firstEvent.EventId.ToString();
         DocumentType = DocumentType.EventsPacket;
+        EventNumber = firstEvent.EventNumber;
         Events = events;
         Metadata = metadata;
     }
@@ -29,6 +32,8 @@ internal sealed class EventsPacketDocument : IDocument
 
     [JsonPropertyName("_ts")]
     public long Timestamp { get; set; }
+
+    public long EventNumber { get; set; }
 
     public IReadOnlyList<Event> Events { get; set; } = Array.Empty<Event>();
 
