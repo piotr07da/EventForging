@@ -116,9 +116,10 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         {
             var eventsPacketDocument = masterDocument.EventsPacketDocument!;
             var md = eventsPacketDocument.Metadata;
-            var ei = new EventInfo(Guid.Parse(eventsPacketDocument.Id!), eventsPacketDocument.Events.First().EventNumber, eventsPacketDocument.Events.First().EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+
             foreach (var e in eventsPacketDocument.Events)
             {
+                var ei = new EventInfo(e.EventId, e.EventNumber, e.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
                 yield return new EventDispatchData(e.Data!, ei);
             }
         }
