@@ -10,11 +10,14 @@ public sealed class Events
         _eventApplier = eventApplier;
     }
 
-    public object[] Get() => _events.ToArray();
+    public object[] Get()
+    {
+        return _events.ToArray();
+    }
 
     public void Apply(object @event)
     {
-        _eventApplier.ApplyEvent(@event, true);
+        _eventApplier.ApplyEvent(@event, EventForgingStaticConfigurationProvider.ApplyMethodsRequiredForAllAppliedEvents);
         _events.Add(@event);
     }
 

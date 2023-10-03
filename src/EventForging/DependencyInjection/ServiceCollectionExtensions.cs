@@ -24,6 +24,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IEventDispatcher, EventDispatcher>();
 
+        EventForgingStaticConfigurationProvider.ApplyMethodsRequiredForAllAppliedEvents = configuration.ApplyMethodsRequiredForAllAppliedEvents;
+
         return services;
     }
 }

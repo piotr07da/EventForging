@@ -62,11 +62,11 @@ public class aggregate_tests
     }
 
     [Fact]
-    public void aggregate_has_to_have_private_Apply_method_for_the_event_emitted_by_itself()
+    public void aggregate_has_to_have_private_Apply_method_for_the_event_applied_by_itself()
     {
         Assert.Throws<EventForgingException>(() =>
         {
-            NoApplyMethodAggregate.CreateEmittingAnEvent();
+            NoApplyMethodAggregate.CreateApplyingAnEvent();
         });
     }
 }
