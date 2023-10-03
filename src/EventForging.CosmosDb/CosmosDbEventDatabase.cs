@@ -155,7 +155,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         {
             // https://docs.microsoft.com/en-us/azure/cosmos-db/sql/transactional-batch
             // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved.
-            throw new ArgumentOutOfRangeException(nameof(events), $"Max number of events is {MaxNumberOfUnpackedEventsInTransaction}.");
+            throw new EventForgingException($"Max number of events is {MaxNumberOfUnpackedEventsInTransaction}.");
         }
 
         var response = await transaction.ExecuteAsync(cancellationToken);
