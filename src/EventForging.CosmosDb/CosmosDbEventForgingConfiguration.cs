@@ -10,6 +10,7 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
 
     public string? ConnectionString { get; set; }
     public IReadOnlyDictionary<Type, AggregateLocationConfiguration> AggregateLocations => _aggregateLocations;
+    public int RetryCountForUnexpectedVersionWhenExpectedVersionIsAny { get; set; } = 10;
     public bool IgnoreServerCertificateValidation { get; set; }
     public IReadOnlyList<SubscriptionConfiguration> Subscriptions => _subscriptions;
     public bool CreateDatabasesAndContainersIfNotExist { get; set; } = true;

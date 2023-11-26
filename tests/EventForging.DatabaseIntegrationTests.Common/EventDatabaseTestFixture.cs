@@ -1,5 +1,6 @@
 ﻿// ReSharper disable InconsistentNaming
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Xunit;
 
@@ -201,6 +202,47 @@ public sealed class EventDatabaseTestFixture
         });
     }
 
+    public async Task do_load_test(int numberOfEvents, int numberOfCycles, [CallerMemberName] string callerMethod = "")
+    {
+        Assert.Equal(nameof(do_load_test), callerMethod);
+
+        var cycleTimes = new List<long>();
+
+        var sw = new Stopwatch();
+        sw.Start();
+
+        var userId = Guid.NewGuid();
+
+        User existingUser;
+
+        await prepare_existing_aggregate(userId);
+
+        for (var cycleIndex = 0; cycleIndex < numberOfCycles; ++cycleIndex)
+        {
+            var cycleSw = new Stopwatch();
+            cycleSw.Start();
+
+            existingUser = await _repository.GetAsync(userId);
+
+            for (var eventIndex = 0; eventIndex < numberOfEvents; ++eventIndex)
+            {
+                existingUser.Approve();
+            }
+
+            await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
+
+            cycleSw.Stop();
+            cycleTimes.Add(cycleSw.ElapsedMilliseconds);
+        }
+
+        existingUser = await _repository.GetAsync(userId);
+        existingUser.Approve();
+
+        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
+
+        sw.Stop();
+    }
+
     private async Task<User> prepare_existing_aggregate(Guid userId)
     {
         var userToSave = User.Register(userId);
@@ -214,7 +256,9 @@ public sealed class EventDatabaseTestFixture
         var eventsAsyncEnumerable = _eventDatabase.ReadAsync<User>(userId.ToString());
         var events = new List<object>();
         await foreach (var e in eventsAsyncEnumerable)
+        {
             events.Add(e);
+        }
 
         return events.ToArray();
     }

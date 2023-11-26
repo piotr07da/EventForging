@@ -118,4 +118,10 @@ public class EventStoreEventDatabase_tests : IAsyncLifetime
     {
         await _fixture.when_existing_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving();
     }
+
+    [Fact]
+    public async Task do_load_test()
+    {
+        await _fixture.do_load_test(100, 10);
+    }
 }

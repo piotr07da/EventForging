@@ -11,6 +11,7 @@ public interface ICosmosDbEventForgingConfiguration
     IReadOnlyList<SubscriptionConfiguration> Subscriptions { get; }
     public bool CreateDatabasesAndContainersIfNotExist { get; set; }
     public bool EnableEventPacking { get; set; }
+    public int RetryCountForUnexpectedVersionWhenExpectedVersionIsAny { get; set; }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
     bool IgnoreServerCertificateValidation { get; set; }
@@ -22,19 +23,11 @@ public interface ICosmosDbEventForgingConfiguration
 
     void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime);
 
-    /// <summary>
-    ///     Allows to set custom stream name factory.
-    /// </summary>
+    /// <summary>Allows to set custom stream name factory.</summary>
     /// <param name="streamNameFactory">The custom stream name factory.</param>
     void SetStreamNameFactory(IStreamNameFactory streamNameFactory);
 
-    /// <summary>
-    ///     Allows to set custom stream name factory.
-    /// </summary>
-    /// <param name="streamNameFactory">
-    ///     The custom stream name factory.<br />
-    ///     The first argument is an aggregate type.<br />
-    ///     The second argument is an aggregate identifier.
-    /// </param>
+    /// <summary>Allows to set custom stream name factory.</summary>
+    /// <param name="streamNameFactory">The custom stream name factory.<br /> The first argument is an aggregate type.<br /> The second argument is an aggregate identifier.</param>
     void SetStreamNameFactory(Func<Type, string, string> streamNameFactory);
 }

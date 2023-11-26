@@ -3,7 +3,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace EventForging.CosmosDb;
 
-internal sealed class CosmosDbEventForgingHostedService : IHostedService, IAsyncDisposable
+internal sealed class CosmosDbEventForgingHostedService : IHostedService, IAsyncDisposable, IDisposable
 {
     private readonly ICosmosDbProvider _cosmosDbProvider;
     private readonly IEventsSubscriber _eventsSubscriber;
@@ -37,5 +37,10 @@ internal sealed class CosmosDbEventForgingHostedService : IHostedService, IAsync
         {
             await StopAsync(CancellationToken.None);
         }
+    }
+
+    public void Dispose()
+    {
+        // TODO release managed resources here
     }
 }

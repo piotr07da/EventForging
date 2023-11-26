@@ -68,6 +68,29 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
+        var tryIndex = 0;
+        while (tryIndex <= _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny)
+        {
+            try
+            {
+                await InternalWriteAsync<TAggregate>(aggregateId, events, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken);
+                return;
+            }
+            catch (EventForgingUnexpectedVersionException ex)
+            {
+                if (expectedVersion != ExpectedVersion.Any || tryIndex == _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny || ex.ActualVersion is null)
+                    throw;
+
+                ++tryIndex;
+                retrievedVersion = ex.ActualVersion.Value;
+
+                _logger.LogDebug(ex, $"Unexpected version of aggregate {aggregateId} detected. Retrying ({tryIndex}/{_cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny}).");
+            }
+        }
+    }
+
+    public async Task InternalWriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
         if (events == null) throw new ArgumentNullException(nameof(events));
 
@@ -91,6 +114,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             {
                 // Because this is the case in which lastReadAggregateVersion.AggregateExists is true then this case (expectedVersion.IsNone) will never occur
                 // due to the check performed in the Repository class (lastReadAggregateVersion.AggregateExists && expectedVersion.IsNone already throws exception).
+                // I left this code for clarity.
                 expectedHeaderVersion = -1L;
             }
             else
@@ -198,7 +222,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
 
-        var query = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.documentType = 'Event' AND c.metadata.initiatorId = @initiatorId")
+        var query = new QueryDefinition($"SELECT VALUE COUNT(1) FROM c WHERE c.metadata.initiatorId = @initiatorId AND (c.documentType = '{DocumentType.Event.ToString()}' OR c.documentType = '{DocumentType.EventsPacket.ToString()}')")
             .WithParameter("@initiatorId", initiatorId.ToString());
         var iterator = GetContainer<TAggregate>().GetItemQueryIterator<int>(query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
 
