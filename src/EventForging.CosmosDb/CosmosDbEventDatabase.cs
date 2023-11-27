@@ -68,6 +68,8 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
+        var originalRetrievedVersion = retrievedVersion;
+
         var tryIndex = 0;
         while (tryIndex <= _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny)
         {
@@ -78,8 +80,15 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             }
             catch (EventForgingUnexpectedVersionException ex)
             {
-                if (expectedVersion != ExpectedVersion.Any || tryIndex == _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny || ex.ActualVersion is null)
+                if (expectedVersion != ExpectedVersion.Any)
+                {
                     throw;
+                }
+
+                if (tryIndex == _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny || ex.ActualVersion is null)
+                {
+                    throw new EventForgingUnexpectedVersionException(ex.AggregateId, ex.StreamId, ex.ExpectedVersion, originalRetrievedVersion, ex.ActualVersion, ex);
+                }
 
                 ++tryIndex;
                 retrievedVersion = ex.ActualVersion.Value;
