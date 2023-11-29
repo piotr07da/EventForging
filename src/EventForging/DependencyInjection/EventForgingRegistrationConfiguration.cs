@@ -26,10 +26,15 @@ internal sealed class EventForgingRegistrationConfiguration : IEventForgingRegis
     {
         var eventHandlerType = typeof(IEventHandler);
         var genericEventHandlerType = typeof(IEventHandler<>);
+        var allEventsHandlerType = typeof(IAllEventsHandler);
         var ehTypes = assembly.GetTypes().Where(t => t.IsClass && eventHandlerType.IsAssignableFrom(t));
         foreach (var ehType in ehTypes)
         {
-            foreach (var ehService in ehType.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == genericEventHandlerType))
+            foreach (var ehService in ehType.GetInterfaces()
+                         .Where(i =>
+                             i == allEventsHandlerType ||
+                             (i.IsGenericType && i.GetGenericTypeDefinition() == genericEventHandlerType))
+                    )
             {
                 Services.AddSingleton(ehService, ehType);
             }

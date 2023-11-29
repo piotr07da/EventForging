@@ -148,6 +148,20 @@ public sealed class SomethingHappendHandler : IEventHandler<SomethingHappend>
 }
 ```
 
+or an `IAllEventsHandler` interface must be implemented as follows:
+
+```csharp
+public sealed class AllEventsHandler : IAllEventsHandler
+{
+    public string SubscriptionName => "TestSubscription";
+
+    public async Task HandleAsync(object e, EventInfo ei, CancellationToken cancellationToken)
+    {
+        // your code goes here
+    }
+}
+```
+
 Each database integration provides its own way to define which events will go to which subscription.
 Please see the [Configuration](#configuration) section.
 
@@ -229,7 +243,8 @@ c.SerializationEnabled = true;
 #### Event handling
 
 To subscribe to the event streams, subscriptions must be added.
-All events will be directed to all matching implementations of `IEventHandler<TEvent>`.
+All events will be directed to all matching implementations of `IEventHandler<TEvent>` or to the implementations
+of `IAllEventsHandler`.
 For more details, please see [Event Handling](#event-handling) section.
 
 ```csharp
@@ -268,7 +283,8 @@ c.SetStreamNameFactory(new MyCustomStreamNameFactory());
 #### Event handling
 
 To subscribe to the event streams, subscriptions must be added.
-All events from specified stream and group will be directed to all matching implementations of `IEventHandler<TEvent>`.
+All events from specified stream and group will be directed to all matching implementations of `IEventHandler<TEvent>`
+or to the implementations of `IAllEventsHandler`.
 This feature is based on EventStore persistent subscriptions, please see
 the [EventStore documentation](https://www.eventstore.com/).
 The same subscription name can be used multiple times with different stream names and group names,
@@ -317,7 +333,7 @@ c.AddAggregateLocations("DatabaseName", "EventsContainerName", typeof(Aggregate1
 
 To subscribe to event streams, subscriptions must be added.
 All events from the specified events container and provided by specified change feed will be directed to all matching
-implementations of `IEventHandler<TEvent>`.
+implementations of `IEventHandler<TEvent>` or to the implementations of `IAllEventsHandler`.
 This feature is based on the change feed mechanism of Cosmos DB, please see
 the [Cosmos DB documentation](https://learn.microsoft.com/en-us/azure/cosmos-db/introduction).
 If the spefified database and container, as well as change feed do not exist, they will be created. The last parameter

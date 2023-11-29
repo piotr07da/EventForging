@@ -18,10 +18,33 @@ internal sealed class EventDispatcher : IEventDispatcher
         if (subscriptionName is null) throw new ArgumentNullException(nameof(subscriptionName));
         if (e is null) throw new ArgumentNullException(nameof(e));
 
+        await DispatchToAllEventsHandlersAsync(subscriptionName, e, ei, cancellationToken);
+        await DispatchToGenericEventHandlersAsync(subscriptionName, e, ei, cancellationToken);
+    }
+
+    private async Task DispatchToAllEventsHandlersAsync(string subscriptionName, object e, EventInfo ei, CancellationToken cancellationToken)
+    {
+        if (subscriptionName is null) throw new ArgumentNullException(nameof(subscriptionName));
+        if (e is null) throw new ArgumentNullException(nameof(e));
+
+        var handlers = _serviceProvider.GetServices<IAllEventsHandler>();
+
+        foreach (var handler in handlers)
+        {
+            if (!handler.SubscriptionName.Equals(subscriptionName))
+            {
+                continue;
+            }
+
+            await handler.HandleAsync(e, ei, cancellationToken);
+        }
+    }
+
+    private async Task DispatchToGenericEventHandlersAsync(string subscriptionName, object e, EventInfo ei, CancellationToken cancellationToken)
+    {
         var eventType = e.GetType();
 
         var handlerType = typeof(IEventHandler<>).MakeGenericType(eventType);
-
         var handleMethod = handlerType.GetMethod(nameof(IEventHandler<object>.HandleAsync))!;
 
         var handlers = _serviceProvider.GetServices(handlerType);

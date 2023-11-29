@@ -108,6 +108,6 @@ fromCategory('{EventsStreamNamePrefix}')
     [Fact]
     public async Task when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success()
     {
-        await _fixture.when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(3, 3, TimeSpan.FromSeconds(5));
+        await _fixture.when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(3, 3, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
     }
 }
