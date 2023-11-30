@@ -9,6 +9,7 @@ using Xunit;
 
 namespace EventForging.EventStore.Tests;
 
+[Trait("Category", "Integration")]
 [Trait("Category", "Flaky")]
 public sealed class EventHandling_tests : IAsyncLifetime
 {
