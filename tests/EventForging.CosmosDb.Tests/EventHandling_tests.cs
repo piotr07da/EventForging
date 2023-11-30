@@ -12,8 +12,7 @@ namespace EventForging.CosmosDb.Tests;
 
 public sealed class EventHandling_tests : IAsyncLifetime
 {
-    //private const string ConnectionString = "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
-    private const string ConnectionString = "AccountEndpoint=https://pbejger-cosmosdb-labotd-neuca.documents.azure.com:443/;AccountKey=CowGHTIEHrbZyF1WH6Jqaqaxw26Ba7uZYWojv8i9BWUlTPXzTg0RN6s7Y87RqVIz59M6vK59jqEeACDbq9PMNQ==;";
+    private const string ConnectionString = "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
     private const string DatabaseName = "TestModule_EventHandling_tests";
     private const string EventsContainerName = "TestModule-Events";
     private const string SubscriptionName = "TestSubscription";
