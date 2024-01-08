@@ -1,0 +1,1 @@
+after starting event store, the $by_category projection must be started manually

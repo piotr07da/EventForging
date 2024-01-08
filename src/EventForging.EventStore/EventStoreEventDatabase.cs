@@ -33,11 +33,30 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
 
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var records = ReadRecordsAsync<TAggregate>(aggregateId, cancellationToken);
+        await foreach (var record in records)
+        {
+            yield return record.EventData;
+        }
+    }
+
+    public async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
         var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
         await foreach (var re in _client.ReadStreamAsync(Direction.Forwards, streamName, StreamPosition.Start, cancellationToken: cancellationToken))
         {
             var ed = _eventSerializer.DeserializeFromBytes(re.Event.EventType, re.Event.Data.ToArray());
-            yield return ed;
+            var eventMetadataJson = Encoding.UTF8.GetString(re.Event.Metadata.ToArray());
+            var em = JsonSerializer.Deserialize<EventMetadata>(eventMetadataJson, JsonSerializerOptions)!;
+            yield return new EventDatabaseRecord(
+                re.Event.EventId.ToGuid(),
+                re.Event.EventNumber.ToInt64(),
+                re.Event.EventType,
+                re.Event.Created,
+                ed,
+                em.ConversationId,
+                em.InitiatorId,
+                em.CustomProperties ?? new Dictionary<string, string>());
         }
     }
 

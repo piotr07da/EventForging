@@ -33,6 +33,15 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var records = ReadRecordsAsync<TAggregate>(aggregateId, cancellationToken);
+        await foreach (var record in records)
+        {
+            yield return record.EventData;
+        }
+    }
+
+    public async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
 
         var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
@@ -50,14 +59,35 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                 {
                     case DocumentType.Event:
                         var eventDocument = masterDocument.EventDocument!;
-                        yield return eventDocument.Data ?? throw new EventForgingException($"Event {eventDocument.Id ?? "NULL"} has no data.");
+                        if (eventDocument.Data is null)
+                            throw new EventForgingException($"Event {eventDocument.Id ?? "NULL"} has no data.");
+                        yield return new EventDatabaseRecord(
+                            Guid.Parse(eventDocument.Id!),
+                            eventDocument.EventNumber,
+                            eventDocument.EventType!,
+                            DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime,
+                            eventDocument.Data,
+                            eventDocument.Metadata?.ConversationId ?? Guid.Empty,
+                            eventDocument.Metadata?.InitiatorId ?? Guid.Empty,
+                            eventDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
                         break;
 
                     case DocumentType.EventsPacket:
                         var eventsPacketDocument = masterDocument.EventsPacketDocument!;
                         foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
                         {
-                            yield return e.Data ?? throw new EventForgingException($"Event {e.EventId} has no data.");
+                            if (e.Data is null)
+                                throw new EventForgingException($"Event {e.EventId} has no data.");
+
+                            yield return new EventDatabaseRecord(
+                                e.EventId,
+                                e.EventNumber,
+                                e.EventType!,
+                                DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime,
+                                e.Data,
+                                eventsPacketDocument.Metadata?.ConversationId ?? Guid.Empty,
+                                eventsPacketDocument.Metadata?.InitiatorId ?? Guid.Empty,
+                                eventsPacketDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
                         }
 
                         break;

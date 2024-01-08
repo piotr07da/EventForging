@@ -24,6 +24,15 @@ internal sealed class MongoDbEventDatabase : IEventDatabase
 
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var records = ReadRecordsAsync<TAggregate>(aggregateId, cancellationToken);
+        await foreach (var record in records)
+        {
+            yield return record.EventData;
+        }
+    }
+
+    public async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
         await Task.CompletedTask;
         yield break;
     }

@@ -27,6 +27,15 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var records = ReadRecordsAsync<TAggregate>(aggregateId, cancellationToken);
+        await foreach (var record in records)
+        {
+            yield return record.EventData;
+        }
+    }
+
+    public async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
         var streamName = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
         _streams.TryGetValue(streamName, out var eventEntries);
         eventEntries ??= new Dictionary<Guid, EventEntry>();
@@ -43,8 +52,15 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
                 eData = entry.Data;
             }
 
-
-            yield return eData;
+            yield return new EventDatabaseRecord(
+                entry.Id,
+                entry.Version,
+                entry.Type,
+                entry.Timestamp,
+                eData,
+                entry.Metadata.ConversationId,
+                entry.Metadata.InitiatorId,
+                entry.Metadata.CustomProperties ?? new Dictionary<string, string>());
         }
 
         await Task.CompletedTask;
