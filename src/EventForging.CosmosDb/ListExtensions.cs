@@ -4,7 +4,6 @@ public static class ListExtensions
 {
     public static IReadOnlyList<IReadOnlyList<T>> SplitEvenly<T>(this IReadOnlyList<T> list, int targetAmountOfLists)
     {
-        var elementCount = list.Count;
         var sublistMinSize = list.Count / targetAmountOfLists;
         var remainder = list.Count % targetAmountOfLists;
         var result = new List<IReadOnlyList<T>>(targetAmountOfLists);

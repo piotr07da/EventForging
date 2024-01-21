@@ -4,13 +4,24 @@ using EventForging.CosmosDb.EventHandling;
 
 namespace EventForging.CosmosDb;
 
+public enum EventPackingMode
+{
+    Disabled,
+    UniformDistributionFilling,
+    AllEventsInOnePacket,
+}
+
 public interface ICosmosDbEventForgingConfiguration
 {
     string? ConnectionString { get; set; }
     IReadOnlyDictionary<Type, AggregateLocationConfiguration> AggregateLocations { get; }
     IReadOnlyList<SubscriptionConfiguration> Subscriptions { get; }
     public bool CreateDatabasesAndContainersIfNotExist { get; set; }
+    public EventPackingMode EventPacking { get; set; }
+
+    [Obsolete("Use EventPacking instead.")]
     public bool EnableEventPacking { get; set; }
+
     public int RetryCountForUnexpectedVersionWhenExpectedVersionIsAny { get; set; }
 
     [EditorBrowsable(EditorBrowsableState.Never)]

@@ -168,57 +168,85 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, headerPatchRequestOptions);
         }
 
-        if (events.Count <= MaxNumberOfUnpackedEventsInTransaction)
+        if (_cosmosConfiguration.EventPacking is EventPackingMode.Disabled or EventPackingMode.UniformDistributionFilling)
         {
+            if (events.Count <= MaxNumberOfUnpackedEventsInTransaction)
+            {
+                for (var eIx = 0; eIx < events.Count; ++eIx)
+                {
+                    var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+                    var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, events[eIx], conversationId, initiatorId, customProperties);
+                    transaction.CreateItem(eventDocument, requestOptions);
+                }
+            }
+            else if (_cosmosConfiguration.EventPacking is EventPackingMode.UniformDistributionFilling)
+            {
+                var eventPackets = events.SplitEvenly(MaxNumberOfUnpackedEventsInTransaction);
+                var eIx = 0;
+                foreach (var ep in eventPackets)
+                {
+                    if (ep.Count == 1)
+                    {
+                        var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+                        var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, ep[0], conversationId, initiatorId, customProperties);
+                        transaction.CreateItem(eventDocument, requestOptions);
+                        ++eIx;
+                    }
+                    else
+                    {
+                        var epdEvents = new List<EventsPacketDocument.Event>();
+                        foreach (var e in ep)
+                        {
+                            var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+
+                            var epdEvent = new EventsPacketDocument.Event
+                            {
+                                EventId = eventId,
+                                EventNumber = retrievedVersion + eIx + 1L,
+                                Data = e,
+                            };
+
+                            epdEvents.Add(epdEvent);
+                            ++eIx;
+                        }
+
+                        var eventsPacketDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
+
+                        transaction.CreateItem(eventsPacketDocument, requestOptions);
+                    }
+                }
+            }
+            else
+            {
+                // https://docs.microsoft.com/en-us/azure/cosmos-db/sql/transactional-batch
+                // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved.
+                throw new EventForgingException($"Max number of events is {MaxNumberOfUnpackedEventsInTransaction}.");
+            }
+        }
+        else if (_cosmosConfiguration.EventPacking is EventPackingMode.AllEventsInOnePacket)
+        {
+            var epdEvents = new List<EventsPacketDocument.Event>();
             for (var eIx = 0; eIx < events.Count; ++eIx)
             {
                 var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-                var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, events[eIx], conversationId, initiatorId, customProperties);
-                transaction.CreateItem(eventDocument, requestOptions);
-            }
-        }
-        else if (_cosmosConfiguration.EnableEventPacking)
-        {
-            var eventPackets = events.SplitEvenly(MaxNumberOfUnpackedEventsInTransaction);
-            var eIx = 0;
-            foreach (var ep in eventPackets)
-            {
-                if (ep.Count == 1)
+
+                var epdEvent = new EventsPacketDocument.Event
                 {
-                    var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-                    var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, ep[0], conversationId, initiatorId, customProperties);
-                    transaction.CreateItem(eventDocument, requestOptions);
-                    ++eIx;
-                }
-                else
-                {
-                    var epdEvents = new List<EventsPacketDocument.Event>();
-                    foreach (var e in ep)
-                    {
-                        var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+                    EventId = eventId,
+                    EventNumber = retrievedVersion + eIx + 1L,
+                    Data = events[eIx],
+                };
 
-                        var epdEvent = new EventsPacketDocument.Event
-                        {
-                            EventId = eventId,
-                            EventNumber = retrievedVersion + eIx + 1L,
-                            Data = e,
-                        };
-
-                        epdEvents.Add(epdEvent);
-                        ++eIx;
-                    }
-
-                    var eventsPackageDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
-
-                    transaction.CreateItem(eventsPackageDocument, requestOptions);
-                }
+                epdEvents.Add(epdEvent);
             }
+
+            var eventsPacketDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
+
+            transaction.CreateItem(eventsPacketDocument, requestOptions);
         }
         else
         {
-            // https://docs.microsoft.com/en-us/azure/cosmos-db/sql/transactional-batch
-            // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved.
-            throw new EventForgingException($"Max number of events is {MaxNumberOfUnpackedEventsInTransaction}.");
+            throw new EventForgingException($"Unknown event packing mode: {_cosmosConfiguration.EventPacking}.");
         }
 
         var response = await transaction.ExecuteAsync(cancellationToken);
