@@ -39,7 +39,6 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
         _host = hostBuilder.Build();
         _fixture = _host.Services.GetRequiredService<EventHandlingTestFixture>();
-        ReadModel.Initialize();
     }
 
     public async Task InitializeAsync()

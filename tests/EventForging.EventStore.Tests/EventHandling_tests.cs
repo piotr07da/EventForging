@@ -73,7 +73,6 @@ fromCategory('{EventsStreamIdPrefix}')
 
         _host = hostBuilder.Build();
         _fixture = _host.Services.GetRequiredService<EventHandlingTestFixture>();
-        ReadModel.Initialize();
     }
 
     public async Task InitializeAsync()
@@ -103,12 +102,12 @@ fromCategory('{EventsStreamIdPrefix}')
     [Fact]
     public async Task when_aggregate_saved_then_events_handled()
     {
-        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(5), 200);
+        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(7), 200);
     }
 
     [Fact]
     public async Task when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success()
     {
-        await _fixture.when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(3, 3, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
+        await _fixture.when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(3, 3, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
     }
 }

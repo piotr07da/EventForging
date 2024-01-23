@@ -1,23 +1,19 @@
-﻿namespace EventForging.DatabaseIntegrationTests.Common;
+﻿using System.Collections.Concurrent;
+
+namespace EventForging.DatabaseIntegrationTests.Common;
 
 public sealed class ReadModel
 {
-    private static readonly AsyncLocal<IDictionary<Guid, SucceedingUserReadModel>> _succeedingModelUserEntries = new();
-    private static readonly AsyncLocal<IDictionary<Guid, FailingUserReadModel>> _failingModelUserEntries = new();
-
-    public static void Initialize()
-    {
-        _succeedingModelUserEntries.Value = new Dictionary<Guid, SucceedingUserReadModel>();
-        _failingModelUserEntries.Value = new Dictionary<Guid, FailingUserReadModel>();
-    }
+    private static readonly ConcurrentDictionary<Guid, SucceedingUserReadModel> _succeedingModelUserEntries = new();
+    private static readonly ConcurrentDictionary<Guid, FailingUserReadModel> _failingModelUserEntries = new();
 
     public static void AddOrUpdateSucceedingReadModel(Guid userId, Action<SucceedingUserReadModel> update)
     {
-        var users = _succeedingModelUserEntries.Value;
+        var users = _succeedingModelUserEntries;
         if (!users!.TryGetValue(userId, out var user))
         {
             user = new SucceedingUserReadModel();
-            users.Add(userId, user);
+            users.TryAdd(userId, user);
         }
 
         update(user);
@@ -25,11 +21,11 @@ public sealed class ReadModel
 
     public static void AddOrUpdateFailingReadModel(Guid userId, Action<FailingUserReadModel> update)
     {
-        var users = _failingModelUserEntries.Value;
+        var users = _failingModelUserEntries;
         if (!users!.TryGetValue(userId, out var user))
         {
             user = new FailingUserReadModel();
-            users.Add(userId, user);
+            users.TryAdd(userId, user);
         }
 
         update(user);
@@ -37,11 +33,11 @@ public sealed class ReadModel
 
     public static bool HasSucceedingReadModelUser(Guid userId, Func<SucceedingUserReadModel, bool> condition)
     {
-        return _succeedingModelUserEntries.Value!.TryGetValue(userId, out var user) && condition(user);
+        return _succeedingModelUserEntries.TryGetValue(userId, out var user) && condition(user);
     }
 
     public static bool HasFailingReadModelUser(Guid userId, Func<FailingUserReadModel, bool> condition)
     {
-        return _failingModelUserEntries.Value!.TryGetValue(userId, out var user) && condition(user);
+        return _failingModelUserEntries.TryGetValue(userId, out var user) && condition(user);
     }
 }

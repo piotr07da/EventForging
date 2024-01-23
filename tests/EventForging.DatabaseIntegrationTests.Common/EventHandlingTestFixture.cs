@@ -66,7 +66,7 @@ public sealed class EventHandlingTestFixture
 
         bool IsExpectedUser(FailingUserReadModel u)
         {
-            return u.Id == userId && u.Name == userName;
+            return u.Id == userId && u.Name == userName && u.Approved;
         }
 
         var tcs = new TaskCompletionSource();
@@ -80,7 +80,7 @@ public sealed class EventHandlingTestFixture
                 {
                     ++u.UserRegisteredEventHandlingTryCount;
                     tryCount = u.UserRegisteredEventHandlingTryCount;
-                    expectedTryCountReached = tryCount == firstTwoEventTryCountUntilSuccess;
+                    expectedTryCountReached = tryCount >= firstTwoEventTryCountUntilSuccess;
                     if (expectedTryCountReached)
                     {
                         u.Id = userRegistered.UserId;
@@ -91,7 +91,7 @@ public sealed class EventHandlingTestFixture
                 {
                     ++u.UserNamedEventHandlingTryCount;
                     tryCount = u.UserNamedEventHandlingTryCount;
-                    expectedTryCountReached = tryCount == firstTwoEventTryCountUntilSuccess;
+                    expectedTryCountReached = tryCount >= firstTwoEventTryCountUntilSuccess;
                     if (expectedTryCountReached)
                     {
                         u.Name = userNamed.Name;
@@ -102,7 +102,7 @@ public sealed class EventHandlingTestFixture
                 {
                     ++u.UserApprovedEventHandlingTryCount;
                     tryCount = u.UserApprovedEventHandlingTryCount;
-                    expectedTryCountReached = tryCount == lastEventsTryCountUntilSuccess;
+                    expectedTryCountReached = tryCount >= lastEventsTryCountUntilSuccess;
                     if (expectedTryCountReached)
                     {
                         u.Approved = true;

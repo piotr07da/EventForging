@@ -71,6 +71,11 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         foreach (var masterDocument in changes)
         {
             var eventDispatchDatas = ExtractEventDispatchData(masterDocument).ToArray();
+            if (eventDispatchDatas.Length == 0)
+            {
+                continue;
+            }
+
             await _eventDispatcher.DispatchAsync(subscriptionName, eventDispatchDatas.Select(edd => new ReceivedEventItem(edd.Data, edd.EventInfo)).ToArray(), cancellationToken);
         }
 
