@@ -1,6 +1,6 @@
-﻿namespace EventForging.InMemory;
+﻿namespace EventForging.CosmosDb;
 
-internal sealed class DefaultStreamNameFactory : IStreamNameFactory
+internal sealed class DefaultStreamIdFactory : IStreamIdFactory
 {
     public string Create(Type aggregateType, string aggregateId)
     {

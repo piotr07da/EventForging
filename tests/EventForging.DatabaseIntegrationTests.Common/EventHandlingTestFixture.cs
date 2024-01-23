@@ -54,7 +54,7 @@ public sealed class EventHandlingTestFixture
         Assert.True(tcs.Task.IsCompleted, "The operation timed out.");
         Assert.True(ReadModel.HasSucceedingReadModelUser(userId, IsExpectedUser), "An aggregate with expected state not found.");
 
-        Assert.True(eventIds.All(AllEventsHandler.Handled), "Not all events were handled by AllEventsHandler.");
+        Assert.True(eventIds.All(AnyEventHandler.Handled), "Not all events were handled by AllEventsHandler.");
     }
 
     public async Task when_aggregate_saved_then_events_handled_by_failing_handler_and_keeps_retrying_until_success(int firstTwoEventTryCountUntilSuccess, int lastEventsTryCountUntilSuccess, TimeSpan timeout, TimeSpan delayAfterFirstSave, [CallerMemberName] string callerMethod = "")

@@ -12,20 +12,20 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     public const int MaxNumberOfUnpackedEventsInTransaction = 99;
 
     private readonly ICosmosDbProvider _cosmosDbProvider;
-    private readonly IStreamNameFactory _streamNameFactory;
+    private readonly IStreamIdFactory _streamIdFactory;
     private readonly IEventForgingConfiguration _configuration;
     private readonly ICosmosDbEventForgingConfiguration _cosmosConfiguration;
     private readonly ILogger _logger;
 
     public CosmosDbEventDatabase(
         ICosmosDbProvider cosmosDbProvider,
-        IStreamNameFactory streamNameFactory,
+        IStreamIdFactory streamIdFactory,
         IEventForgingConfiguration configuration,
         ICosmosDbEventForgingConfiguration cosmosConfiguration,
         ILoggerFactory? loggerFactory = null)
     {
         _cosmosDbProvider = cosmosDbProvider ?? throw new ArgumentNullException(nameof(cosmosDbProvider));
-        _streamNameFactory = streamNameFactory ?? throw new ArgumentNullException(nameof(streamNameFactory));
+        _streamIdFactory = streamIdFactory ?? throw new ArgumentNullException(nameof(streamIdFactory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _cosmosConfiguration = cosmosConfiguration ?? throw new ArgumentNullException(nameof(cosmosConfiguration));
         _logger = loggerFactory.CreateEventForgingLogger();
@@ -44,7 +44,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
 
-        var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
+        var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
 
         var container = GetContainer<TAggregate>();
 
@@ -133,7 +133,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
         if (events == null) throw new ArgumentNullException(nameof(events));
 
-        var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
+        var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
 
         var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };
         var transaction = GetContainer<TAggregate>().CreateTransactionalBatch(new PartitionKey(streamId));
@@ -287,7 +287,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         if (initiatorId == Guid.Empty)
             return false;
 
-        var streamId = _streamNameFactory.Create(typeof(TAggregate), aggregateId);
+        var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
 
         var query = new QueryDefinition($"SELECT VALUE COUNT(1) FROM c WHERE c.metadata.initiatorId = @initiatorId AND (c.documentType = '{DocumentType.Event.ToString()}' OR c.documentType = '{DocumentType.EventsPacket.ToString()}')")
             .WithParameter("@initiatorId", initiatorId.ToString());

@@ -14,8 +14,8 @@ namespace EventForging.EventStore.Tests;
 public sealed class EventHandling_tests : IAsyncLifetime
 {
     private const string ConnectionString = "esdb://localhost:2113?tls=false";
-    private const string EventsStreamNamePrefix = "tests";
-    private const string SubscriptionStreamName = "from-category-tests";
+    private const string EventsStreamIdPrefix = "tests";
+    private const string SubscriptionStreamId = "from-category-tests";
     private const string SubscriptionName = "TestSubscription";
     private const string SubscriptionGroupName = "test-group";
     private const string FailingSubscriptionName = "FailingTestSubscription";
@@ -24,15 +24,15 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
     private const string ProjectionQuery = $@"
 options({{
-    resultStreamName: ""{SubscriptionStreamName}"",
+    resultStreamName: ""{SubscriptionStreamId}"",
         $includeLinks: false,
     reorderEvents: false,
     processingLag: 0
 }})
-fromCategory('{EventsStreamNamePrefix}')
+fromCategory('{EventsStreamIdPrefix}')
     .when({{
     $any: function(state, event) {{
-        linkTo(""{SubscriptionStreamName}"", event);
+        linkTo(""{SubscriptionStreamId}"", event);
     }}
 }})
 ";
@@ -57,10 +57,10 @@ fromCategory('{EventsStreamNamePrefix}')
                     {
                         cc.Address = ConnectionString;
 
-                        cc.SetStreamNameFactory((aggregateType, aggregateId) => $"{EventsStreamNamePrefix}-{aggregateType.Name}-{aggregateId}");
+                        cc.SetStreamIdFactory((aggregateType, aggregateId) => $"{EventsStreamIdPrefix}-{aggregateType.Name}-{aggregateId}");
 
-                        cc.AddEventsSubscription(SubscriptionName, SubscriptionStreamName, SubscriptionGroupName);
-                        cc.AddEventsSubscription(FailingSubscriptionName, SubscriptionStreamName, FailingSubscriptionGroupName);
+                        cc.AddEventsSubscription(SubscriptionName, SubscriptionStreamId, SubscriptionGroupName);
+                        cc.AddEventsSubscription(FailingSubscriptionName, SubscriptionStreamId, FailingSubscriptionGroupName);
                     });
                     r.AddEventHandlers(assembly);
                 });

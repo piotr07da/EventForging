@@ -202,7 +202,7 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
                         cc.ConnectionString = ConnectionString;
                         cc.EventPacking = eventPacking;
                         cc.AddAggregateLocations(DatabaseName, ContainerName, assembly);
-                        cc.SetStreamNameFactory((t, aId) => $"tests-{t.Name}-{aId}");
+                        cc.SetStreamIdFactory((t, aId) => $"tests-{t.Name}-{aId}");
                     });
                 });
                 services.AddSingleton<EventDatabaseTestFixture>();

@@ -1,6 +1,6 @@
 ﻿namespace EventForging.EventStore;
 
-internal sealed class DefaultStreamNameFactory : IStreamNameFactory
+internal sealed class DefaultStreamIdFactory : IStreamIdFactory
 {
     public string Create(Type aggregateType, string aggregateId)
     {

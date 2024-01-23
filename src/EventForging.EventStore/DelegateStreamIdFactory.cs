@@ -1,10 +1,10 @@
 ﻿namespace EventForging.EventStore;
 
-internal sealed class DelegateStreamNameFactory : IStreamNameFactory
+internal sealed class DelegateStreamIdFactory : IStreamIdFactory
 {
     private readonly Func<Type, string, string> _delegateFactory;
 
-    public DelegateStreamNameFactory(Func<Type, string, string> delegateFactory)
+    public DelegateStreamIdFactory(Func<Type, string, string> delegateFactory)
     {
         _delegateFactory = delegateFactory ?? throw new ArgumentNullException(nameof(delegateFactory));
     }

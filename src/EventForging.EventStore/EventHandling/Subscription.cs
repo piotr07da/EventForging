@@ -39,9 +39,9 @@ internal sealed class Subscription
         await CreateOrUpdatePersistentSubscriptionAsync();
 
 #if NETSTANDARD2_0 || NETSTANDARD2_1
-        _subscription = await _persistentSubscriptionsClient.SubscribeAsync(_subscriptionConfiguration.StreamName, _subscriptionConfiguration.GroupName, OnEventAppeared, OnSubscriptionDropped, autoAck: false, cancellationToken: cancellationToken);
+        _subscription = await _persistentSubscriptionsClient.SubscribeAsync(_subscriptionConfiguration.StreamId, _subscriptionConfiguration.GroupName, OnEventAppeared, OnSubscriptionDropped, autoAck: false, cancellationToken: cancellationToken);
 #else
-        _subscription = await _persistentSubscriptionsClient.SubscribeToStreamAsync(_subscriptionConfiguration.StreamName, _subscriptionConfiguration.GroupName, OnEventAppeared, OnSubscriptionDropped, cancellationToken: cancellationToken);
+        _subscription = await _persistentSubscriptionsClient.SubscribeToStreamAsync(_subscriptionConfiguration.StreamId, _subscriptionConfiguration.GroupName, OnEventAppeared, OnSubscriptionDropped, cancellationToken: cancellationToken);
 #endif
     }
 
@@ -59,16 +59,16 @@ internal sealed class Subscription
             resolveLinkTos: true
         );
 
-        var streamName = _subscriptionConfiguration.StreamName;
+        var streamId = _subscriptionConfiguration.StreamId;
         var groupName = _subscriptionConfiguration.GroupName;
 
         try
         {
-            await _persistentSubscriptionsClient.CreateAsync(streamName, groupName, settings);
+            await _persistentSubscriptionsClient.CreateAsync(streamId, groupName, settings);
         }
         catch
         {
-            await _persistentSubscriptionsClient.UpdateAsync(streamName, groupName, settings);
+            await _persistentSubscriptionsClient.UpdateAsync(streamId, groupName, settings);
         }
     }
 
@@ -87,7 +87,7 @@ internal sealed class Subscription
             var e = _eventSerializer.DeserializeFromBytes(re.Event.EventType, re.Event.Data.ToArray());
             var emd = JsonSerializer.Deserialize<EventMetadata>(re.Event.Metadata.ToArray(), _jsonSerializerOptionsProvider.Get())!;
 
-            await _eventDispatcher.DispatchAsync(_subscriptionConfiguration.SubscriptionName, e, new EventInfo(re.Event.EventId.ToGuid(), re.Event.EventNumber.ToInt64(), re.Event.EventType, emd.ConversationId, emd.InitiatorId, re.Event.Created, emd.CustomProperties ?? new Dictionary<string, string>()), cancellationToken);
+            await _eventDispatcher.DispatchAsync(_subscriptionConfiguration.SubscriptionName, e, new EventInfo(re.Event.EventStreamId, re.Event.EventId.ToGuid(), re.Event.EventNumber.ToInt64(), re.Event.EventType, emd.ConversationId, emd.InitiatorId, re.Event.Created, emd.CustomProperties ?? new Dictionary<string, string>()), cancellationToken);
 
             if (_unsubscribeRequested)
             {
@@ -105,7 +105,7 @@ internal sealed class Subscription
 
     private void OnSubscriptionDropped(PersistentSubscription subscription, SubscriptionDroppedReason reason, Exception? exception)
     {
-        _logger.LogError(exception, $"Eventstore subscription {_subscriptionConfiguration.SubscriptionName} for [{_subscriptionConfiguration.StreamName}/{_subscriptionConfiguration.GroupName}] dropped. Reason: {reason}.");
+        _logger.LogError(exception, $"Eventstore subscription {_subscriptionConfiguration.SubscriptionName} for [{_subscriptionConfiguration.StreamId}/{_subscriptionConfiguration.GroupName}] dropped. Reason: {reason}.");
 #pragma warning disable 4014
         SubscribeAsync(CancellationToken.None);
 #pragma warning restore 4014

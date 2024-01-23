@@ -2,4 +2,4 @@
 
 namespace EventForging.EventStore.EventHandling;
 
-public sealed record SubscriptionConfiguration(string SubscriptionName, string StreamName, string GroupName, PersistentSubscriptionNakEventAction EventHandlingExceptionNakAction = PersistentSubscriptionNakEventAction.Retry, ulong? StartFrom = 0);
+public sealed record SubscriptionConfiguration(string SubscriptionName, string StreamId, string GroupName, PersistentSubscriptionNakEventAction EventHandlingExceptionNakAction = PersistentSubscriptionNakEventAction.Retry, ulong? StartFrom = 0);

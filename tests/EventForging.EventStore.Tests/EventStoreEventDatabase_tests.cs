@@ -32,7 +32,7 @@ public class EventStoreEventDatabase_tests : IAsyncLifetime
                     r.UseEventStore(cc =>
                     {
                         cc.Address = ConnectionString;
-                        cc.SetStreamNameFactory((t, aId) => $"tests-{t.Name}-{aId}");
+                        cc.SetStreamIdFactory((t, aId) => $"tests-{t.Name}-{aId}");
                     });
                 });
                 services.AddSingleton<EventDatabaseTestFixture>();

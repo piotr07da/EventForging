@@ -2,7 +2,7 @@ using EventForging.EventsHandling;
 
 namespace EventForging.DatabaseIntegrationTests.Common;
 
-public class AllEventsHandler : IAllEventsHandler
+public class AnyEventHandler : IAnyEventHandler
 {
     private static readonly HashSet<Guid> _handledEvents = new();
 

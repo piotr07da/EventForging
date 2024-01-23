@@ -110,7 +110,7 @@ public class when_ConfigureSerialization_and_UseCosmosDb
             r.UseInMemory(cc =>
             {
                 cc.SerializationEnabled = serializationEnabled;
-                cc.SetStreamNameFactory((t, aId) => $"tests-{t.Name}-{aId}");
+                cc.SetStreamIdFactory((t, aId) => $"tests-{t.Name}-{aId}");
             });
         });
         services.AddSingleton<EventDatabaseTestFixture>();

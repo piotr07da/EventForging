@@ -1,33 +1,79 @@
 ﻿using System.Reflection;
 using System.Runtime.ExceptionServices;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace EventForging.EventsHandling;
 
 internal sealed class EventDispatcher : IEventDispatcher
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger _logger;
 
-    public EventDispatcher(IServiceProvider serviceProvider)
+    public EventDispatcher(
+        IServiceProvider serviceProvider,
+        ILoggerFactory? loggerFactory = null)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _logger = loggerFactory.CreateEventForgingLogger();
     }
 
-    public async Task DispatchAsync(string subscriptionName, object e, EventInfo ei, CancellationToken cancellationToken)
+    public async Task DispatchAsync(string subscriptionName, object eventData, EventInfo eventInfo, CancellationToken cancellationToken)
     {
-        if (subscriptionName is null) throw new ArgumentNullException(nameof(subscriptionName));
-        if (e is null) throw new ArgumentNullException(nameof(e));
-
-        await DispatchToAllEventsHandlersAsync(subscriptionName, e, ei, cancellationToken);
-        await DispatchToGenericEventHandlersAsync(subscriptionName, e, ei, cancellationToken);
+        await DispatchAsync(subscriptionName, new ReceivedEventItem(eventData, eventInfo), cancellationToken);
     }
 
-    private async Task DispatchToAllEventsHandlersAsync(string subscriptionName, object e, EventInfo ei, CancellationToken cancellationToken)
+    public async Task DispatchAsync(string subscriptionName, ReceivedEventItem receivedEvent, CancellationToken cancellationToken)
+    {
+        await DispatchAsync(subscriptionName, new[] { receivedEvent, }, cancellationToken);
+    }
+
+    public async Task DispatchAsync(string subscriptionName, IReadOnlyList<ReceivedEventItem> receivedEvents, CancellationToken cancellationToken)
     {
         if (subscriptionName is null) throw new ArgumentNullException(nameof(subscriptionName));
-        if (e is null) throw new ArgumentNullException(nameof(e));
 
-        var handlers = _serviceProvider.GetServices<IAllEventsHandler>();
+        if (receivedEvents.Count == 0)
+        {
+            return;
+        }
+
+        await DispatchToEventBatchHandlersAsync(subscriptionName, receivedEvents, cancellationToken);
+
+        foreach (var receivedEvent in receivedEvents)
+        {
+            var ed = receivedEvent.EventData;
+            var ei = receivedEvent.EventInfo;
+            try
+            {
+                await DispatchToAnyEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
+                await DispatchToGenericEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while dispatching the {EventName} event to the event handlers. Stream id is {StreamId}. Event number is {EventNumber}.", ei.EventType, ei.StreamId, ei.EventNumber);
+                throw;
+            }
+        }
+    }
+
+    private async Task DispatchToEventBatchHandlersAsync(string subscriptionName, IReadOnlyList<ReceivedEventItem> receivedEvents, CancellationToken cancellationToken)
+    {
+        var handlers = _serviceProvider.GetServices<IEventBatchHandler>();
+
+        foreach (var handler in handlers)
+        {
+            if (!handler.SubscriptionName.Equals(subscriptionName))
+            {
+                continue;
+            }
+
+            await handler.HandleAsync(receivedEvents, cancellationToken);
+        }
+    }
+
+    private async Task DispatchToAnyEventHandlersAsync(string subscriptionName, object e, EventInfo ei, CancellationToken cancellationToken)
+    {
+        var handlers = _serviceProvider.GetServices<IAnyEventHandler>();
 
         foreach (var handler in handlers)
         {

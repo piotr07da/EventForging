@@ -33,7 +33,7 @@ public static class EventForgingRegistrationConfigurationExtensions
             services.AddSingleton<IEventSerializer, DummyEventSerializer>();
         }
 
-        services.AddSingleton(configuration.StreamNameFactory);
+        services.AddSingleton(configuration.StreamIdFactory);
 
         services.AddSingleton<IEventDatabase, InMemoryEventDatabase>();
 

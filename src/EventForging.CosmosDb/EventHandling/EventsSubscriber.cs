@@ -71,27 +71,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         foreach (var masterDocument in changes)
         {
             var eventDispatchDatas = ExtractEventDispatchData(masterDocument).ToArray();
-
-            foreach (var eventDispatchData in eventDispatchDatas)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (_stopRequested)
-                {
-                    // Throw inside the loop to fail as soon as possible.
-                    throw new EventForgingException(stopRequestedExceptionMessage);
-                }
-
-                try
-                {
-                    await _eventDispatcher.DispatchAsync(subscriptionName, eventDispatchData.Data, eventDispatchData.EventInfo, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Document handling failed. Subscription: '{subscriptionName}'; DocumentType: '{masterDocument.DocumentType}'; StreamId: '{masterDocument.StreamId}'; DocumentId: '{masterDocument.Id}'.");
-                    throw;
-                }
-            }
+            await _eventDispatcher.DispatchAsync(subscriptionName, eventDispatchDatas.Select(edd => new ReceivedEventItem(edd.Data, edd.EventInfo)).ToArray(), cancellationToken);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -109,7 +89,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         {
             var eventDocument = masterDocument.EventDocument!;
             var md = eventDocument.Metadata;
-            var ei = new EventInfo(Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+            var ei = new EventInfo(masterDocument.StreamId, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
             yield return new EventDispatchData(eventDocument.Data!, ei);
         }
         else if (masterDocument.DocumentType == DocumentType.EventsPacket)
@@ -119,7 +99,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
             foreach (var e in eventsPacketDocument.Events)
             {
-                var ei = new EventInfo(e.EventId, e.EventNumber, e.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+                var ei = new EventInfo(masterDocument.StreamId, e.EventId, e.EventNumber, e.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
                 yield return new EventDispatchData(e.Data!, ei);
             }
         }

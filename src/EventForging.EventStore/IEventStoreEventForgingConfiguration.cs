@@ -9,28 +9,20 @@ public interface IEventStoreEventForgingConfiguration
 
     IReadOnlyList<SubscriptionConfiguration> Subscriptions { get; }
 
-    IStreamNameFactory StreamNameFactory { get; }
+    IStreamIdFactory StreamIdFactory { get; }
 
     void AddEventsSubscription(
         string subscriptionName,
-        string streamName,
+        string streamId,
         string groupName,
         PersistentSubscriptionNakEventAction eventHandlingExceptionNakAction = PersistentSubscriptionNakEventAction.Retry,
         ulong? startFrom = 0);
 
-    /// <summary>
-    ///     Allows to set custom stream name factory.
-    /// </summary>
-    /// <param name="streamNameFactory">The custom stream name factory.</param>
-    void SetStreamNameFactory(IStreamNameFactory streamNameFactory);
+    /// <summary>Allows to set custom stream id factory.</summary>
+    /// <param name="streamIdFactory">The custom stream id factory.</param>
+    void SetStreamIdFactory(IStreamIdFactory streamIdFactory);
 
-    /// <summary>
-    ///     Allows to set custom stream name factory.
-    /// </summary>
-    /// <param name="streamNameFactory">
-    ///     The custom stream name factory.<br />
-    ///     The first argument is an aggregate type.<br />
-    ///     The second argument is an aggregate identifier.
-    /// </param>
-    void SetStreamNameFactory(Func<Type, string, string> streamNameFactory);
+    /// <summary>Allows to set custom stream id factory.</summary>
+    /// <param name="streamIdFactory">The custom stream id factory.<br /> The first argument is an aggregate type.<br /> The second argument is an aggregate identifier.</param>
+    void SetStreamIdFactory(Func<Type, string, string> streamIdFactory);
 }

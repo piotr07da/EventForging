@@ -22,7 +22,7 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
         set => EventPacking = value ? EventPackingMode.UniformDistributionFilling : EventPackingMode.Disabled;
     }
 
-    public IStreamNameFactory StreamNameFactory { get; private set; } = new DefaultStreamNameFactory();
+    public IStreamIdFactory StreamIdFactory { get; private set; } = new DefaultStreamIdFactory();
 
     public void AddAggregateLocations(string databaseName, string eventsContainerName, params Type[] aggregateTypes)
     {
@@ -72,13 +72,13 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
         _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, databaseName, eventsContainerName, changeFeedName, startTime));
     }
 
-    public void SetStreamNameFactory(IStreamNameFactory streamNameFactory)
+    public void SetStreamIdFactory(IStreamIdFactory streamIdFactory)
     {
-        StreamNameFactory = streamNameFactory;
+        StreamIdFactory = streamIdFactory;
     }
 
-    public void SetStreamNameFactory(Func<Type, string, string> streamNameFactory)
+    public void SetStreamIdFactory(Func<Type, string, string> streamIdFactory)
     {
-        StreamNameFactory = new DelegateStreamNameFactory(streamNameFactory);
+        StreamIdFactory = new DelegateStreamIdFactory(streamIdFactory);
     }
 }

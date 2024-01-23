@@ -6,20 +6,20 @@ internal sealed class InMemoryEventForgingConfiguration : IInMemoryEventForgingC
 
     public bool SerializationEnabled { get; set; }
     public IReadOnlyList<string> EventSubscriptions => new List<string>(_subscriptions);
-    public IStreamNameFactory StreamNameFactory { get; private set; } = new DefaultStreamNameFactory();
+    public IStreamIdFactory StreamIdFactory { get; private set; } = new DefaultStreamIdFactory();
 
     public void AddEventSubscription(string subscriptionName)
     {
         _subscriptions.Add(subscriptionName);
     }
 
-    public void SetStreamNameFactory(IStreamNameFactory streamNameFactory)
+    public void SetStreamIdFactory(IStreamIdFactory streamIdFactory)
     {
-        StreamNameFactory = streamNameFactory;
+        StreamIdFactory = streamIdFactory;
     }
 
-    public void SetStreamNameFactory(Func<Type, string, string> streamNameFactory)
+    public void SetStreamIdFactory(Func<Type, string, string> streamIdFactory)
     {
-        StreamNameFactory = new DelegateStreamNameFactory(streamNameFactory);
+        StreamIdFactory = new DelegateStreamIdFactory(streamIdFactory);
     }
 }

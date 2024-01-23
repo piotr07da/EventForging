@@ -244,7 +244,7 @@ c.SerializationEnabled = true;
 
 To subscribe to the event streams, subscriptions must be added.
 All events will be directed to all matching implementations of `IEventHandler<TEvent>` or to the implementations
-of `IAllEventsHandler`.
+of `IAnyEventHandler`.
 For more details, please see [Event Handling](#event-handling) section.
 
 ```csharp
@@ -269,31 +269,31 @@ The address of the EventStore database is required and is specified as shown bel
 c.Address = configuration["EventStore:Address"];
 ```
 
-#### Stream name
+#### Stream Id
 
-By default, the stream name will be constructed from the name of the aggregate CLR type and its Id.
-However, there is an option to provide a custom stream name factory by either providing a lambda expression
-or by implementing the `IStreamNameFactory` interface.
+By default, the stream id will be constructed from the name of the aggregate CLR type and its Id.
+However, there is an option to provide a custom stream id factory by either providing a lambda expression
+or by implementing the `IStreamIdFactory` interface.
 
 ```csharp
-c.SetStreamNameFactory((aggregateType, aggregateId) => $"{EventsStreamNamePrefix}-{aggregateType.Name}-{aggregateId}");
-c.SetStreamNameFactory(new MyCustomStreamNameFactory());
+c.SetStreamIdFactory((aggregateType, aggregateId) => $"{EventsStreamIdPrefix}-{aggregateType.Name}-{aggregateId}");
+c.SetStreamIdFactory(new MyCustomStreamIdFactory());
 ```
 
 #### Event handling
 
 To subscribe to the event streams, subscriptions must be added.
 All events from specified stream and group will be directed to all matching implementations of `IEventHandler<TEvent>`
-or to the implementations of `IAllEventsHandler`.
+or to the implementations of `IAnyEventHandler`.
 This feature is based on EventStore persistent subscriptions, please see
 the [EventStore documentation](https://www.eventstore.com/).
-The same subscription name can be used multiple times with different stream names and group names,
+The same subscription name can be used multiple times with different stream ids (aka stream names) and group names,
 directing events from different streams to the same event handlers.
 For more details, please see [Event Handling](#event-handling) section.
 
 ```csharp
-cc.AddEventsSubscription("TestSubscription", "TestSubscriptionStreamName", "TestSubscriptionGroupName");
-cc.AddEventsSubscription("TestSubscription", "TestSubscriptionStreamName", "TestSubscriptionGroupName", PersistentSubscriptionNakEventAction.Park);
+cc.AddEventsSubscription("TestSubscription", "TestSubscriptionStreamId", "TestSubscriptionGroupName");
+cc.AddEventsSubscription("TestSubscription", "TestSubscriptionStreamId", "TestSubscriptionGroupName", PersistentSubscriptionNakEventAction.Park);
 ```
 
 The last parameter is used to specify how the exception that occured during event handling must be handled. It is
@@ -333,7 +333,7 @@ c.AddAggregateLocations("DatabaseName", "EventsContainerName", typeof(Aggregate1
 
 To subscribe to event streams, subscriptions must be added.
 All events from the specified events container and provided by specified change feed will be directed to all matching
-implementations of `IEventHandler<TEvent>` or to the implementations of `IAllEventsHandler`.
+implementations of `IEventHandler<TEvent>` or to the implementations of `IAnyEventHandler`.
 This feature is based on the change feed mechanism of Cosmos DB, please see
 the [Cosmos DB documentation](https://learn.microsoft.com/en-us/azure/cosmos-db/introduction).
 If the spefified database and container, as well as change feed do not exist, they will be created. The last parameter

@@ -9,25 +9,25 @@ internal sealed class EventStoreEventForgingConfiguration : IEventStoreEventForg
 
     public string? Address { get; set; }
     public IReadOnlyList<SubscriptionConfiguration> Subscriptions => _subscriptions;
-    public IStreamNameFactory StreamNameFactory { get; private set; } = new DefaultStreamNameFactory();
+    public IStreamIdFactory StreamIdFactory { get; private set; } = new DefaultStreamIdFactory();
 
     public void AddEventsSubscription(
         string subscriptionName,
-        string streamName,
+        string streamId,
         string groupName,
         PersistentSubscriptionNakEventAction eventHandlingExceptionNakAction = PersistentSubscriptionNakEventAction.Retry,
         ulong? startFrom = 0)
     {
-        _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, streamName, groupName, eventHandlingExceptionNakAction, startFrom));
+        _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, streamId, groupName, eventHandlingExceptionNakAction, startFrom));
     }
 
-    public void SetStreamNameFactory(IStreamNameFactory streamNameFactory)
+    public void SetStreamIdFactory(IStreamIdFactory streamIdFactory)
     {
-        StreamNameFactory = streamNameFactory;
+        StreamIdFactory = streamIdFactory;
     }
 
-    public void SetStreamNameFactory(Func<Type, string, string> streamNameFactory)
+    public void SetStreamIdFactory(Func<Type, string, string> streamIdFactory)
     {
-        StreamNameFactory = new DelegateStreamNameFactory(streamNameFactory);
+        StreamIdFactory = new DelegateStreamIdFactory(streamIdFactory);
     }
 }
