@@ -133,6 +133,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
         if (events == null) throw new ArgumentNullException(nameof(events));
 
+        if (events.Count == 0)
+        {
+            return;
+        }
+
         var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
 
         var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };
