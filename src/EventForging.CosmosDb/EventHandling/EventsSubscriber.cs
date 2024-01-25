@@ -11,6 +11,8 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     private readonly ICosmosDbEventForgingConfiguration _configuration;
     private readonly ILogger _logger;
 
+    private readonly GroupsMerger<MasterDocument, ReceivedEventItem> _changesMerger = CreateChangesMerger();
+
     private readonly IList<ChangeFeedProcessor> _changeFeedProcessors = new List<ChangeFeedProcessor>();
     private bool _stopRequested;
 
@@ -68,15 +70,15 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     {
         const string stopRequestedExceptionMessage = "Stop has been requested. Cannot finish processing for received changes. Batch of changes will not be confirmed and will be redelivered.";
 
-        foreach (var masterDocument in changes)
+        var batches = _changesMerger.Merge(changes);
+        foreach (var batch in batches)
         {
-            var eventDispatchDatas = ExtractEventDispatchData(masterDocument).ToArray();
-            if (eventDispatchDatas.Length == 0)
+            if (batch.Count == 0)
             {
                 continue;
             }
 
-            await _eventDispatcher.DispatchAsync(subscriptionName, eventDispatchDatas.Select(edd => new ReceivedEventItem(edd.Data, edd.EventInfo)).ToArray(), cancellationToken);
+            await _eventDispatcher.DispatchAsync(subscriptionName, batch, cancellationToken);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -88,14 +90,19 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         }
     }
 
-    private IEnumerable<EventDispatchData> ExtractEventDispatchData(MasterDocument masterDocument)
+    private static GroupsMerger<MasterDocument, ReceivedEventItem> CreateChangesMerger()
+    {
+        return new GroupsMerger<MasterDocument, ReceivedEventItem>(md => md.StreamId, ExtractReceivedEvents);
+    }
+
+    private static IEnumerable<ReceivedEventItem> ExtractReceivedEvents(MasterDocument masterDocument)
     {
         if (masterDocument.DocumentType == DocumentType.Event)
         {
             var eventDocument = masterDocument.EventDocument!;
             var md = eventDocument.Metadata;
             var ei = new EventInfo(masterDocument.StreamId, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
-            yield return new EventDispatchData(eventDocument.Data!, ei);
+            yield return new ReceivedEventItem(eventDocument.Data!, ei);
         }
         else if (masterDocument.DocumentType == DocumentType.EventsPacket)
         {
@@ -105,10 +112,8 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             foreach (var e in eventsPacketDocument.Events)
             {
                 var ei = new EventInfo(masterDocument.StreamId, e.EventId, e.EventNumber, e.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
-                yield return new EventDispatchData(e.Data!, ei);
+                yield return new ReceivedEventItem(e.Data!, ei);
             }
         }
     }
-
-    private record EventDispatchData(object Data, EventInfo EventInfo);
 }
