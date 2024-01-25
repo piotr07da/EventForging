@@ -11,7 +11,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     private readonly ICosmosDbEventForgingConfiguration _configuration;
     private readonly ILogger _logger;
 
-    private readonly GroupsMerger<MasterDocument, ReceivedEventItem> _changesMerger = CreateChangesMerger();
+    private readonly GroupsMerger<MasterDocument, ReceivedEvent> _changesMerger = CreateChangesMerger();
 
     private readonly IList<ChangeFeedProcessor> _changeFeedProcessors = new List<ChangeFeedProcessor>();
     private bool _stopRequested;
@@ -78,7 +78,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
                 continue;
             }
 
-            await _eventDispatcher.DispatchAsync(subscriptionName, batch, cancellationToken);
+            await _eventDispatcher.DispatchAsync(subscriptionName, new ReceivedEventsBatch(batch), cancellationToken);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -90,19 +90,19 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         }
     }
 
-    private static GroupsMerger<MasterDocument, ReceivedEventItem> CreateChangesMerger()
+    private static GroupsMerger<MasterDocument, ReceivedEvent> CreateChangesMerger()
     {
-        return new GroupsMerger<MasterDocument, ReceivedEventItem>(md => md.StreamId, ExtractReceivedEvents);
+        return new GroupsMerger<MasterDocument, ReceivedEvent>(md => md.StreamId, ExtractReceivedEvents);
     }
 
-    private static IEnumerable<ReceivedEventItem> ExtractReceivedEvents(MasterDocument masterDocument)
+    private static IEnumerable<ReceivedEvent> ExtractReceivedEvents(MasterDocument masterDocument)
     {
         if (masterDocument.DocumentType == DocumentType.Event)
         {
             var eventDocument = masterDocument.EventDocument!;
             var md = eventDocument.Metadata;
             var ei = new EventInfo(masterDocument.StreamId, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
-            yield return new ReceivedEventItem(eventDocument.Data!, ei);
+            yield return new ReceivedEvent(eventDocument.Data!, ei);
         }
         else if (masterDocument.DocumentType == DocumentType.EventsPacket)
         {
@@ -112,7 +112,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             foreach (var e in eventsPacketDocument.Events)
             {
                 var ei = new EventInfo(masterDocument.StreamId, e.EventId, e.EventNumber, e.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
-                yield return new ReceivedEventItem(e.Data!, ei);
+                yield return new ReceivedEvent(e.Data!, ei);
             }
         }
     }

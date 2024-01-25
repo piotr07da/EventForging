@@ -20,26 +20,26 @@ internal sealed class EventDispatcher : IEventDispatcher
 
     public async Task DispatchAsync(string subscriptionName, object eventData, EventInfo eventInfo, CancellationToken cancellationToken)
     {
-        await DispatchAsync(subscriptionName, new ReceivedEventItem(eventData, eventInfo), cancellationToken);
+        await DispatchAsync(subscriptionName, new ReceivedEvent(eventData, eventInfo), cancellationToken);
     }
 
-    public async Task DispatchAsync(string subscriptionName, ReceivedEventItem receivedEvent, CancellationToken cancellationToken)
+    public async Task DispatchAsync(string subscriptionName, ReceivedEvent receivedEvent, CancellationToken cancellationToken)
     {
-        await DispatchAsync(subscriptionName, new[] { receivedEvent, }, cancellationToken);
+        await DispatchAsync(subscriptionName, new ReceivedEventsBatch(new[] { receivedEvent, }), cancellationToken);
     }
 
-    public async Task DispatchAsync(string subscriptionName, IReadOnlyList<ReceivedEventItem> receivedEvents, CancellationToken cancellationToken)
+    public async Task DispatchAsync(string subscriptionName, ReceivedEventsBatch receivedEventsBatch, CancellationToken cancellationToken)
     {
         if (subscriptionName is null) throw new ArgumentNullException(nameof(subscriptionName));
 
-        if (receivedEvents.Count == 0)
+        if (receivedEventsBatch.Count == 0)
         {
             return;
         }
 
-        await DispatchToEventBatchHandlersAsync(subscriptionName, receivedEvents, cancellationToken);
+        await DispatchToEventBatchHandlersAsync(subscriptionName, receivedEventsBatch, cancellationToken);
 
-        foreach (var receivedEvent in receivedEvents)
+        foreach (var receivedEvent in receivedEventsBatch)
         {
             var ed = receivedEvent.EventData;
             var ei = receivedEvent.EventInfo;
@@ -56,7 +56,7 @@ internal sealed class EventDispatcher : IEventDispatcher
         }
     }
 
-    private async Task DispatchToEventBatchHandlersAsync(string subscriptionName, IReadOnlyList<ReceivedEventItem> receivedEvents, CancellationToken cancellationToken)
+    private async Task DispatchToEventBatchHandlersAsync(string subscriptionName, ReceivedEventsBatch receivedEventsBatch, CancellationToken cancellationToken)
     {
         var handlers = _serviceProvider.GetServices<IEventBatchHandler>();
 
@@ -67,7 +67,7 @@ internal sealed class EventDispatcher : IEventDispatcher
                 continue;
             }
 
-            await handler.HandleAsync(receivedEvents, cancellationToken);
+            await handler.HandleAsync(receivedEventsBatch, cancellationToken);
         }
     }
 
