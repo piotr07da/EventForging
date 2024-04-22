@@ -21,18 +21,39 @@ public readonly struct AggregateVersion
         return Value.ToString();
     }
 
-    public override bool Equals(object? obj) => obj != null && this == (AggregateVersion)obj;
+    public override bool Equals(object? obj)
+    {
+        return obj != null && this == (AggregateVersion)obj;
+    }
 
-    public override int GetHashCode() => Value.GetHashCode();
+    public override int GetHashCode()
+    {
+        return Value.GetHashCode();
+    }
 
     public static AggregateVersion NotExistingAggregate { get; } = new(NotExistingAggregateValue);
 
-    public static bool operator ==(AggregateVersion lhs, AggregateVersion rhs) => lhs.Value == rhs.Value;
-    public static bool operator !=(AggregateVersion lhs, AggregateVersion rhs) => !(lhs == rhs);
+    public static bool operator ==(AggregateVersion lhs, AggregateVersion rhs)
+    {
+        return lhs.Value == rhs.Value;
+    }
 
-    public static implicit operator long(AggregateVersion ev) => ev.Value;
+    public static bool operator !=(AggregateVersion lhs, AggregateVersion rhs)
+    {
+        return !(lhs == rhs);
+    }
+
+    public static implicit operator long(AggregateVersion ev)
+    {
+        return ev.Value;
+    }
 
     public static implicit operator AggregateVersion(long v)
+    {
+        return FromValue(v);
+    }
+
+    public static AggregateVersion FromValue(long v)
     {
         if (v < 0)
         {

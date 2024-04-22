@@ -14,11 +14,14 @@ internal sealed class Subscription
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _workerTask;
 
-    public Subscription(string name, IEventDispatcher eventDispatcher, ILoggerFactory? loggerFactory = null)
+    public Subscription(
+        string name,
+        IEventDispatcher eventDispatcher,
+        ILogger logger)
     {
         _name = name ?? throw new ArgumentNullException(nameof(name));
         _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));
-        _logger = loggerFactory.CreateEventForgingLogger();
+        _logger = logger;
         _queue = new BlockingCollection<Entry>();
     }
 

@@ -10,6 +10,8 @@ public sealed class Events
         _eventApplier = eventApplier;
     }
 
+    public int Count => _events.Count;
+
     public object[] Get()
     {
         return _events.ToArray();

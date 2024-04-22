@@ -1,4 +1,5 @@
 ﻿using EventForging.CosmosDb.Serialization;
+using EventForging.Diagnostics.Logging;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
@@ -21,12 +22,12 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         ICosmosDbEventForgingConfiguration configuration,
         IEventSerializer eventSerializer,
         IJsonSerializerOptionsProvider serializerOptionsProvider,
-        ILoggerFactory? loggerFactory = null)
+        IEventForgingLoggerProvider loggerProvider)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
-        _logger = loggerFactory.CreateEventForgingLogger();
+        _logger = loggerProvider.Logger;
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -147,5 +148,8 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         return container;
     }
 
-    private static string ContainerCacheKey(string databaseName, string containerName) => $"~~{databaseName}~~{containerName}~~";
+    private static string ContainerCacheKey(string databaseName, string containerName)
+    {
+        return $"~~{databaseName}~~{containerName}~~";
+    }
 }

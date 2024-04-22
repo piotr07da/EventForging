@@ -1,4 +1,5 @@
-﻿using EventForging.EventsHandling;
+﻿using EventForging.Diagnostics.Logging;
+using EventForging.EventsHandling;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 
@@ -16,12 +17,16 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     private readonly IList<ChangeFeedProcessor> _changeFeedProcessors = new List<ChangeFeedProcessor>();
     private bool _stopRequested;
 
-    public EventsSubscriber(ICosmosDbProvider cosmosDbProvider, IEventDispatcher eventDispatcher, ICosmosDbEventForgingConfiguration configuration, ILoggerFactory? loggerFactory = null)
+    public EventsSubscriber(
+        ICosmosDbProvider cosmosDbProvider,
+        IEventDispatcher eventDispatcher,
+        ICosmosDbEventForgingConfiguration configuration,
+        IEventForgingLoggerProvider loggerProvider)
     {
         _cosmosDbProvider = cosmosDbProvider ?? throw new ArgumentNullException(nameof(cosmosDbProvider));
         _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        _logger = loggerFactory.CreateEventForgingLogger();
+        _logger = loggerProvider.Logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)

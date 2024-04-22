@@ -1,4 +1,5 @@
-﻿using EventForging.EventsHandling;
+﻿using EventForging.Diagnostics.Logging;
+using EventForging.EventsHandling;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient(typeof(IRepository<>), typeof(Repository<>));
 
         services.AddSingleton<IEventDispatcher, EventDispatcher>();
+
+        services.AddSingleton<IEventForgingLoggerProvider, EventForgingLoggerProvider>();
 
         EventForgingStaticConfigurationProvider.ApplyMethodsRequiredForAllAppliedEvents = configuration.ApplyMethodsRequiredForAllAppliedEvents;
 

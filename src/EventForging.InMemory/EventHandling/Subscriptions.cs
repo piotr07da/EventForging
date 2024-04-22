@@ -1,4 +1,6 @@
-﻿using EventForging.EventsHandling;
+﻿using EventForging.Diagnostics.Logging;
+using EventForging.EventsHandling;
+using Microsoft.Extensions.Logging;
 
 namespace EventForging.InMemory.EventHandling;
 
@@ -8,11 +10,16 @@ internal sealed class Subscriptions : ISubscriptions
 
     private readonly IInMemoryEventForgingConfiguration _configuration;
     private readonly IEventDispatcher _eventDispatcher;
+    private readonly ILogger _logger;
 
-    public Subscriptions(IInMemoryEventForgingConfiguration configuration, IEventDispatcher eventDispatcher)
+    public Subscriptions(
+        IInMemoryEventForgingConfiguration configuration,
+        IEventDispatcher eventDispatcher,
+        IEventForgingLoggerProvider loggerProvider)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));
+        _logger = loggerProvider.Logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -21,7 +28,7 @@ internal sealed class Subscriptions : ISubscriptions
 
         foreach (var subscriptionName in _configuration.EventSubscriptions)
         {
-            var subscription = new Subscription(subscriptionName, _eventDispatcher);
+            var subscription = new Subscription(subscriptionName, _eventDispatcher, _logger);
             _subscriptions.Add(subscriptionName, subscription);
             var startTask = subscription.StartAsync(cancellationToken);
             startTasks.Add(startTask);

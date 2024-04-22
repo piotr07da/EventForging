@@ -1,4 +1,4 @@
-﻿namespace EventForging.Logging;
+﻿namespace EventForging.Diagnostics.Logging;
 
 internal class NullScope : IDisposable
 {

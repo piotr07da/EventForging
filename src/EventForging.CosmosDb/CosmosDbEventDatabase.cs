@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Runtime.CompilerServices;
+using EventForging.Diagnostics.Logging;
 using EventForging.Idempotency;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -22,13 +23,13 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         IStreamIdFactory streamIdFactory,
         IEventForgingConfiguration configuration,
         ICosmosDbEventForgingConfiguration cosmosConfiguration,
-        ILoggerFactory? loggerFactory = null)
+        IEventForgingLoggerProvider loggerProvider)
     {
         _cosmosDbProvider = cosmosDbProvider ?? throw new ArgumentNullException(nameof(cosmosDbProvider));
         _streamIdFactory = streamIdFactory ?? throw new ArgumentNullException(nameof(streamIdFactory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _cosmosConfiguration = cosmosConfiguration ?? throw new ArgumentNullException(nameof(cosmosConfiguration));
-        _logger = loggerFactory.CreateEventForgingLogger();
+        _logger = loggerProvider.Logger;
     }
 
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)

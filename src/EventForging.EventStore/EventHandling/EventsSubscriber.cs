@@ -1,4 +1,5 @@
-﻿using EventForging.EventsHandling;
+﻿using EventForging.Diagnostics.Logging;
+using EventForging.EventsHandling;
 using EventForging.Serialization;
 using EventStore.Client;
 using Microsoft.Extensions.Logging;
@@ -22,14 +23,14 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         IEventSerializer eventSerializer,
         IJsonSerializerOptionsProvider jsonSerializerOptionsProvider,
         IEventStoreEventForgingConfiguration configuration,
-        ILoggerFactory? loggerFactory = null)
+        IEventForgingLoggerProvider loggerProvider)
     {
         _persistentSubscriptionsClient = persistentSubscriptionsClient ?? throw new ArgumentNullException(nameof(persistentSubscriptionsClient));
         _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
         _jsonSerializerOptionsProvider = jsonSerializerOptionsProvider ?? throw new ArgumentNullException(nameof(jsonSerializerOptionsProvider));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        _logger = loggerFactory.CreateEventForgingLogger();
+        _logger = loggerProvider.Logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)

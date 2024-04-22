@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using System.Runtime.ExceptionServices;
+using EventForging.Diagnostics.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -12,10 +13,10 @@ internal sealed class EventDispatcher : IEventDispatcher
 
     public EventDispatcher(
         IServiceProvider serviceProvider,
-        ILoggerFactory? loggerFactory = null)
+        IEventForgingLoggerProvider loggerProvider)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        _logger = loggerFactory.CreateEventForgingLogger();
+        _logger = loggerProvider.Logger;
     }
 
     public async Task DispatchAsync(string subscriptionName, object eventData, EventInfo eventInfo, CancellationToken cancellationToken)

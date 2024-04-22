@@ -1,4 +1,6 @@
-﻿namespace EventForging;
+﻿using EventForging.Diagnostics.Tracing;
+
+namespace EventForging;
 
 internal sealed class Repository<TAggregate> : IRepository<TAggregate>
     where TAggregate : class, IEventForged
@@ -17,7 +19,21 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     public async Task<TAggregate> GetAsync(string aggregateId, CancellationToken cancellationToken = default)
     {
-        return await TryGetAsync(aggregateId, cancellationToken) ?? throw new AggregateNotFoundEventForgingException(typeof(TAggregate), aggregateId);
+        var activity = ActivitySourceProvider.ActivitySource.StartRepositoryGetActivity<TAggregate>(aggregateId, false);
+
+        try
+        {
+            return await InternalTryGetAsync(aggregateId, cancellationToken) ?? throw new AggregateNotFoundEventForgingException(typeof(TAggregate), aggregateId);
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            throw;
+        }
+        finally
+        {
+            activity?.Complete();
+        }
     }
 
     public async Task<TAggregate?> TryGetAsync(Guid aggregateId, CancellationToken cancellationToken = default)
@@ -27,6 +43,51 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     public async Task<TAggregate?> TryGetAsync(string aggregateId, CancellationToken cancellationToken = default)
     {
+        var activity = ActivitySourceProvider.ActivitySource.StartRepositoryGetActivity<TAggregate>(aggregateId, true);
+
+        try
+        {
+            return await InternalTryGetAsync(aggregateId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            throw;
+        }
+        finally
+        {
+            activity?.Complete();
+        }
+    }
+
+    public async Task SaveAsync(Guid aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
+    {
+        await SaveAsync(aggregateId.ToString(), aggregate, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
+    {
+        var activity = ActivitySourceProvider.ActivitySource.StartRepositorySaveActivity(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties);
+
+        try
+        {
+            await InternalSaveAsync(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            throw;
+        }
+        finally
+        {
+            activity?.Complete();
+        }
+    }
+
+    private async Task<TAggregate?> InternalTryGetAsync(string aggregateId, CancellationToken cancellationToken = default)
+    {
+        var activity = EventForgingActivity.Current;
+
         var aggregate = AggregateProxyGenerator.Create<TAggregate>();
         var eventApplier = EventApplier.CreateFor(aggregate);
 
@@ -45,20 +106,22 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
             return null;
         }
 
-        aggregate.ConfigureAggregateMetadata(md => md.RetrievedVersion = eventCount - 1);
+        var retrievedVersion = AggregateVersion.FromValue(eventCount - 1);
+        aggregate.ConfigureAggregateMetadata(md => md.RetrievedVersion = retrievedVersion);
+
+        activity.EnrichRepositoryGetActivityWithAggregateVersion(retrievedVersion);
 
         return aggregate;
     }
 
-    public async Task SaveAsync(Guid aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
+    private async Task InternalSaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
     {
-        await SaveAsync(aggregateId.ToString(), aggregate, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
-    }
+        var activity = EventForgingActivity.Current;
 
-    public async Task SaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
-    {
         var aggregateMetadata = aggregate.GetAggregateMetadata();
         var retrievedAggregateVersion = aggregateMetadata.RetrievedVersion;
+
+        activity.EnrichRepositorySaveActivityWithAggregateVersion(retrievedAggregateVersion);
 
         if (expectedVersion.IsNone && retrievedAggregateVersion.AggregateExists)
         {
