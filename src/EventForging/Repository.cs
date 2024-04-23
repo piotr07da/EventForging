@@ -1,4 +1,5 @@
-﻿using EventForging.Diagnostics.Tracing;
+﻿using System.Diagnostics;
+using EventForging.Diagnostics.Tracing;
 
 namespace EventForging;
 
@@ -86,7 +87,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     private async Task<TAggregate?> InternalTryGetAsync(string aggregateId, CancellationToken cancellationToken = default)
     {
-        var activity = EventForgingActivity.Current;
+        var activity = Activity.Current;
 
         var aggregate = AggregateProxyGenerator.Create<TAggregate>();
         var eventApplier = EventApplier.CreateFor(aggregate);
@@ -116,7 +117,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     private async Task InternalSaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
     {
-        var activity = EventForgingActivity.Current;
+        var activity = Activity.Current;
 
         var aggregateMetadata = aggregate.GetAggregateMetadata();
         var retrievedAggregateVersion = aggregateMetadata.RetrievedVersion;

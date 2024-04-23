@@ -3,6 +3,7 @@
 using System.Diagnostics;
 using EventForging.DatabaseIntegrationTests.Common;
 using EventForging.Diagnostics;
+using EventForging.Diagnostics.Tracing;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry;
@@ -46,15 +47,15 @@ public class InMemoryEventDatabase_tests : IAsyncLifetime
     {
         await Fixture(serializationEnabled).when_new_aggregate_saved_then_read_aggregate_rehydrated();
 
-        var repositorySaveActivity = _tracing.FirstOrDefault(a => a.OperationName == "repository.save");
+        var repositorySaveActivity = _tracing.FirstOrDefault(a => a.OperationName == TracingActivityNames.RepositorySave);
         Assert.NotNull(repositorySaveActivity);
-        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == "aggregate.id");
-        Assert.Contains(repositorySaveActivity.Tags, t => t is { Key: "aggregate.type", Value: nameof(User), });
-        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == "aggregate.version" && t.Value == AggregateVersion.NotExistingAggregate.ToString());
-        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == "aggregate.number_of_events_to_save");
-        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == "expected_version");
-        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == "conversation_id");
-        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == "initiator_id");
+        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == TracingAttributeNames.AggregateId);
+        Assert.Contains(repositorySaveActivity.Tags, t => t is { Key: TracingAttributeNames.AggregateType, Value: nameof(User), });
+        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == TracingAttributeNames.AggregateVersion && t.Value == AggregateVersion.NotExistingAggregate.ToString());
+        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == TracingAttributeNames.AggregateEventsCount);
+        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == TracingAttributeNames.ExpectedVersion);
+        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == TracingAttributeNames.ConversationId);
+        Assert.Contains(repositorySaveActivity.Tags, t => t.Key == TracingAttributeNames.InitiatorId);
     }
 
     [Theory]
@@ -119,6 +120,14 @@ public class InMemoryEventDatabase_tests : IAsyncLifetime
     public async Task when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving(bool serializationEnabled)
     {
         await Fixture(serializationEnabled).when_new_aggregate_saved_twice_with_different_initiator_ids_and_Retrieved_version_is_expected_then_exception_thrown_during_second_saving();
+
+        var repositorySaveActivity = _tracing.FirstOrDefault(a => a.OperationName == TracingActivityNames.RepositorySave && a.Events.Any(e => e.Name == TracingAttributeNames.ExceptionEvent.Name));
+        Assert.NotNull(repositorySaveActivity);
+        var exceptionEvent = repositorySaveActivity.Events.First(e => e.Name == TracingAttributeNames.ExceptionEvent.Name);
+        Assert.Contains(exceptionEvent.Tags, t => t is { Key: TracingAttributeNames.ExceptionEvent.ExceptionEscaped, Value: "true", });
+        Assert.Contains(exceptionEvent.Tags, t => t is { Key: TracingAttributeNames.ExceptionEvent.ExceptionType, Value: nameof(EventForgingUnexpectedVersionException), });
+        Assert.Contains(exceptionEvent.Tags, t => t.Key == TracingAttributeNames.ExceptionEvent.ExceptionMessage);
+        Assert.Contains(exceptionEvent.Tags, t => t.Key == TracingAttributeNames.ExceptionEvent.ExceptionStackTrace);
     }
 
     [Theory]

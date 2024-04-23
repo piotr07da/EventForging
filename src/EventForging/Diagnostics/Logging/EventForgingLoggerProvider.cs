@@ -12,7 +12,7 @@ public sealed class EventForgingLoggerProvider : IEventForgingLoggerProvider
         }
         else
         {
-            Logger = loggerFactory.CreateLogger(EventForgingDiagnosticsInfo.LoggingSourceName);
+            Logger = loggerFactory.CreateLogger(EventForgingDiagnosticsInfo.LoggerCategoryName);
         }
     }
 

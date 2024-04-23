@@ -4,56 +4,53 @@ namespace EventForging.Diagnostics.Tracing;
 
 public static class TracingExtensions
 {
-    private const string RepositoryGetActivityName = "repository.get";
-    private const string RepositorySaveActivityName = "repository.save";
-
-    public static EventForgingActivity? StartRepositoryGetActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, bool nullExpected)
+    public static Activity? StartRepositoryGetActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, bool nullExpected)
         where TAggregate : class, IEventForged
     {
         // ReSharper disable once ExplicitCallerInfoArgument
-        var activity = activitySource.StartActivity(RepositoryGetActivityName);
+        var activity = activitySource.StartActivity(TracingActivityNames.RepositoryGet);
         if (activity is null)
         {
             return null;
         }
 
-        activity.SetTag("aggregate.id", aggregateId);
-        activity.SetTag("aggregate.type", typeof(TAggregate).Name);
-        activity.SetTag("null_expected", nullExpected.ToString());
-
-        return new EventForgingActivity(activity);
-    }
-
-    public static EventForgingActivity? EnrichRepositoryGetActivityWithAggregateVersion(this EventForgingActivity? activity, AggregateVersion aggregateVersion)
-    {
-        if (activity is null)
-        {
-            return null;
-        }
-
-        activity.AssertName(RepositoryGetActivityName);
-
-        activity.Activity.SetTag("aggregate.version", aggregateVersion.ToString());
+        activity.SetTag(TracingAttributeNames.AggregateId, aggregateId);
+        activity.SetTag(TracingAttributeNames.AggregateType, typeof(TAggregate).Name);
+        activity.SetTag(TracingAttributeNames.NullExpected, nullExpected.ToString());
 
         return activity;
     }
 
-    public static EventForgingActivity? StartRepositorySaveActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties)
-        where TAggregate : class, IEventForged
+    public static Activity? EnrichRepositoryGetActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
     {
-        // ReSharper disable once ExplicitCallerInfoArgument
-        var activity = activitySource.StartActivity(RepositorySaveActivityName);
         if (activity is null)
         {
             return null;
         }
 
-        activity.SetTag("aggregate.id", aggregateId);
-        activity.SetTag("aggregate.type", typeof(TAggregate).Name);
-        activity.SetTag("aggregate.number_of_events_to_save", aggregate.Events.Count.ToString());
-        activity.SetTag("expected_version", expectedVersion.ToString());
-        activity.SetTag("conversation_id", conversationId.ToString());
-        activity.SetTag("initiator_id", initiatorId.ToString());
+        activity.AssertName(TracingActivityNames.RepositoryGet);
+
+        activity.SetTag(TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
+
+        return activity;
+    }
+
+    public static Activity? StartRepositorySaveActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties)
+        where TAggregate : class, IEventForged
+    {
+        // ReSharper disable once ExplicitCallerInfoArgument
+        var activity = activitySource.StartActivity(TracingActivityNames.RepositorySave);
+        if (activity is null)
+        {
+            return null;
+        }
+
+        activity.SetTag(TracingAttributeNames.AggregateId, aggregateId);
+        activity.SetTag(TracingAttributeNames.AggregateType, typeof(TAggregate).Name);
+        activity.SetTag(TracingAttributeNames.AggregateEventsCount, aggregate.Events.Count.ToString());
+        activity.SetTag(TracingAttributeNames.ExpectedVersion, expectedVersion.ToString());
+        activity.SetTag(TracingAttributeNames.ConversationId, conversationId.ToString());
+        activity.SetTag(TracingAttributeNames.InitiatorId, initiatorId.ToString());
 
         if (activity.IsAllDataRequested)
         {
@@ -61,24 +58,24 @@ public static class TracingExtensions
             {
                 foreach (var customProperty in customProperties)
                 {
-                    activity.SetTag($"custom_property.{customProperty.Key}", customProperty.Value);
+                    activity.SetTag($"{TracingAttributeNames.CustomPropertyPrefix}{customProperty.Key}", customProperty.Value);
                 }
             }
         }
 
-        return new EventForgingActivity(activity);
+        return activity;
     }
 
-    public static EventForgingActivity? EnrichRepositorySaveActivityWithAggregateVersion(this EventForgingActivity? activity, AggregateVersion aggregateVersion)
+    public static Activity? EnrichRepositorySaveActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
     {
         if (activity is null)
         {
             return null;
         }
 
-        activity.AssertName(RepositorySaveActivityName);
+        activity.AssertName(TracingActivityNames.RepositorySave);
 
-        activity.Activity.SetTag("aggregate.version", aggregateVersion.ToString());
+        activity.SetTag(TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
 
         return activity;
     }
