@@ -23,16 +23,7 @@ public static class TracingExtensions
 
     public static Activity? EnrichRepositoryGetActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
     {
-        if (activity is null)
-        {
-            return null;
-        }
-
-        activity.AssertName(TracingActivityNames.RepositoryGet);
-
-        activity.SetTag(TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
-
-        return activity;
+        return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositoryGet, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
     }
 
     public static Activity? StartRepositorySaveActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties)
@@ -68,15 +59,6 @@ public static class TracingExtensions
 
     public static Activity? EnrichRepositorySaveActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
     {
-        if (activity is null)
-        {
-            return null;
-        }
-
-        activity.AssertName(TracingActivityNames.RepositorySave);
-
-        activity.SetTag(TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
-
-        return activity;
+        return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositorySave, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
     }
 }

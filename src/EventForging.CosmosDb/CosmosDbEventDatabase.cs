@@ -1,6 +1,9 @@
 ﻿using System.Net;
 using System.Runtime.CompilerServices;
+using EventForging.CosmosDb.Diagnostics.Logging;
+using EventForging.CosmosDb.Diagnostics.Tracing;
 using EventForging.Diagnostics.Logging;
+using EventForging.Diagnostics.Tracing;
 using EventForging.Idempotency;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -10,7 +13,7 @@ namespace EventForging.CosmosDb;
 
 internal sealed class CosmosDbEventDatabase : IEventDatabase
 {
-    public const int MaxNumberOfUnpackedEventsInTransaction = 99;
+    private const int MaxNumberOfUnpackedEventsInTransaction = 99;
 
     private readonly ICosmosDbProvider _cosmosDbProvider;
     private readonly IStreamIdFactory _streamIdFactory;
@@ -49,7 +52,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         var container = GetContainer<TAggregate>();
 
-        var iterator = container.GetItemQueryIterator<MasterDocument>($"SELECT * FROM x WHERE x.documentType = '{nameof(DocumentType.Event)}' OR x.documentType = '{nameof(DocumentType.EventsPacket)}' ORDER BY x.eventNumber", requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
+        var iterator = container.GetItemQueryIterator<MasterDocument>("SELECT * FROM x ORDER BY x.eventNumber", requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
 
         while (iterator.HasMoreResults)
         {
@@ -58,6 +61,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             {
                 switch (masterDocument.DocumentType)
                 {
+                    case DocumentType.Undefined:
+                    case DocumentType.Header:
+                    default:
+                        continue;
+
                     case DocumentType.Event:
                         var eventDocument = masterDocument.EventDocument!;
                         if (eventDocument.Data is null)
@@ -99,33 +107,52 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
-        var originalRetrievedVersion = retrievedVersion;
+        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteActivity();
 
-        var tryIndex = 0;
-        while (tryIndex <= _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny)
+        try
         {
-            try
+            var originalRetrievedVersion = retrievedVersion;
+
+            var retryCountForUnexpectedVersionWhenExpectedVersionIsAny = _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny;
+
+            var tryIndex = 0;
+            while (tryIndex <= retryCountForUnexpectedVersionWhenExpectedVersionIsAny)
             {
-                await InternalWriteAsync<TAggregate>(aggregateId, events, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken);
-                return;
-            }
-            catch (EventForgingUnexpectedVersionException ex)
-            {
-                if (expectedVersion != ExpectedVersion.Any)
+                activity.EnrichEventDatabaseWriteActivityWithTryCount(tryIndex + 1);
+
+                try
                 {
-                    throw;
+                    await InternalWriteAsync<TAggregate>(aggregateId, events, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken);
+                    return;
                 }
-
-                if (tryIndex == _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny || ex.ActualVersion is null)
+                catch (EventForgingUnexpectedVersionException ex)
                 {
-                    throw new EventForgingUnexpectedVersionException(ex.AggregateId, ex.StreamId, ex.ExpectedVersion, originalRetrievedVersion, ex.ActualVersion, ex);
+                    if (expectedVersion != ExpectedVersion.Any)
+                    {
+                        throw;
+                    }
+
+                    if (tryIndex == retryCountForUnexpectedVersionWhenExpectedVersionIsAny || ex.ActualVersion is null)
+                    {
+                        throw new EventForgingUnexpectedVersionException(ex.AggregateId, ex.StreamId, ex.ExpectedVersion, originalRetrievedVersion, ex.ActualVersion, ex);
+                    }
+
+                    ++tryIndex;
+
+                    _logger.RetryingDueToUnexpectedVersionOfAggregateWhenExpectedVersionIsAny(ex, aggregateId, retrievedVersion, ex.ActualVersion.Value, tryIndex, retryCountForUnexpectedVersionWhenExpectedVersionIsAny);
+
+                    retrievedVersion = ex.ActualVersion.Value;
                 }
-
-                ++tryIndex;
-                retrievedVersion = ex.ActualVersion.Value;
-
-                _logger.LogDebug(ex, $"Unexpected version of aggregate {aggregateId} detected. Retrying ({tryIndex}/{_cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny}).");
             }
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            throw;
+        }
+        finally
+        {
+            activity?.Complete();
         }
     }
 
@@ -257,12 +284,13 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         var response = await transaction.ExecuteAsync(cancellationToken);
 
+
         if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
         {
             var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(aggregateId, initiatorId, cancellationToken);
             if (alreadyWritten)
             {
-                LogIdempotencyCheck(aggregateId, initiatorId);
+                _logger.WriteIgnoredDueToIdempotencyCheck(aggregateId, initiatorId);
                 return;
             }
 
@@ -325,10 +353,5 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         var header = new HeaderDocument(streamId);
         header.Version += eventsCount;
         return header;
-    }
-
-    private void LogIdempotencyCheck(string aggregateId, Guid initiatorId)
-    {
-        _logger.LogDebug($"Cannot write events for aggregate {aggregateId} because these events has already been written for the same initiatorId '{initiatorId}'.");
     }
 }

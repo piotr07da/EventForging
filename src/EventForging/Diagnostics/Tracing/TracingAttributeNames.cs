@@ -2,8 +2,8 @@ namespace EventForging.Diagnostics.Tracing;
 
 public static class TracingActivityNames
 {
-    public const string RepositoryGet = "repository.get";
-    public const string RepositorySave = "repository.save";
+    public const string RepositoryGet = "Repository Get";
+    public const string RepositorySave = "Repository Save";
 }
 
 public static class TracingAttributeNames

@@ -17,4 +17,8 @@
         <ProjectReference Include="..\EventForging\EventForging.csproj"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <Folder Include="Diagnostics\Metrics\"/>
+    </ItemGroup>
+
 </Project>
