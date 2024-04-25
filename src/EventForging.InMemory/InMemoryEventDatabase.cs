@@ -72,7 +72,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
         _streams.TryGetValue(streamId, out var currentEventEntries);
         currentEventEntries ??= new Dictionary<Guid, EventEntry>();
 
-        var actualVersion = currentEventEntries.Values.Count - 1;
+        var currentVersion = currentEventEntries.Values.Count - 1;
 
         var allEventEntries = currentEventEntries.ToDictionary(de => de.Key, de => de.Value);
         var newEventEntries = new List<EventEntry>();
@@ -98,7 +98,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
                 eventType = e.GetType().FullName!;
             }
 
-            var entry = new EventEntry(streamId, eventId, actualVersion + eIx + 1, eventType, DateTime.UtcNow, eData, new EventMetadata(conversationId, initiatorId));
+            var entry = new EventEntry(streamId, eventId, currentVersion + eIx + 1, eventType, DateTime.UtcNow, eData, new EventMetadata(conversationId, initiatorId));
 
             newEventEntries.Add(entry);
         }
@@ -123,9 +123,9 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
                 expectedVersionNumber = expectedVersion;
             }
 
-            if (expectedVersionNumber.HasValue && expectedVersionNumber.Value != actualVersion)
+            if (expectedVersionNumber.HasValue && expectedVersionNumber.Value != currentVersion)
             {
-                throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, retrievedVersion, actualVersion);
+                throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, retrievedVersion, currentVersion);
             }
 
             foreach (var newEventEntry in newEventEntries)

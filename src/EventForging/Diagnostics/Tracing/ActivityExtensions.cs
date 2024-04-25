@@ -30,6 +30,25 @@ public static class ActivityExtensions
         activity.Dispose();
     }
 
+    public static Activity? EnrichWithTagsIfNotNull(this Activity? activity, string expectedActivityName, IDictionary<string, string> tags)
+    {
+        if (activity is null)
+        {
+            return null;
+        }
+
+        activity.AssertName(expectedActivityName);
+
+        foreach (var tag in tags)
+        {
+            var tagName = tag.Key;
+            var tagValue = tag.Value;
+            activity.SetTag(tagName, tagValue);
+        }
+
+        return activity;
+    }
+
     public static Activity? EnrichWithTagIfNotNull(this Activity? activity, string expectedActivityName, string tagName, string tagValue)
     {
         if (activity is null)

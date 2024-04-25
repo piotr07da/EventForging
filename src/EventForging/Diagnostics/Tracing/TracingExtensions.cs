@@ -2,9 +2,9 @@ using System.Diagnostics;
 
 namespace EventForging.Diagnostics.Tracing;
 
-public static class TracingExtensions
+internal static class TracingExtensions
 {
-    public static Activity? StartRepositoryGetActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, bool nullExpected)
+    internal static Activity? StartRepositoryGetActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, bool nullExpected)
         where TAggregate : class, IEventForged
     {
         // ReSharper disable once ExplicitCallerInfoArgument
@@ -21,12 +21,12 @@ public static class TracingExtensions
         return activity;
     }
 
-    public static Activity? EnrichRepositoryGetActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
+    internal static Activity? EnrichRepositoryGetActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
     {
         return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositoryGet, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
     }
 
-    public static Activity? StartRepositorySaveActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties)
+    internal static Activity? StartRepositorySaveActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties)
         where TAggregate : class, IEventForged
     {
         // ReSharper disable once ExplicitCallerInfoArgument
@@ -57,7 +57,7 @@ public static class TracingExtensions
         return activity;
     }
 
-    public static Activity? EnrichRepositorySaveActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
+    internal static Activity? EnrichRepositorySaveActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
     {
         return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositorySave, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
     }

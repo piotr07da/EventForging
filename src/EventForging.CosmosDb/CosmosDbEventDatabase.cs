@@ -1,9 +1,11 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using System.Runtime.CompilerServices;
 using EventForging.CosmosDb.Diagnostics.Logging;
 using EventForging.CosmosDb.Diagnostics.Tracing;
 using EventForging.Diagnostics.Logging;
 using EventForging.Diagnostics.Tracing;
+using EventForging.EnumerationExtensions;
 using EventForging.Idempotency;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -44,70 +46,35 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
     }
 
-    public async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
+        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseReadActivity();
 
-        var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
-
-        var container = GetContainer<TAggregate>();
-
-        var iterator = container.GetItemQueryIterator<MasterDocument>("SELECT * FROM x ORDER BY x.eventNumber", requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
-
-        while (iterator.HasMoreResults)
+        try
         {
-            var page = await iterator.ReadNextAsync(cancellationToken);
-            foreach (var masterDocument in page)
-            {
-                switch (masterDocument.DocumentType)
+            var records = InternalReadRecordsAsync<TAggregate>(aggregateId, activity, cancellationToken);
+
+            return records.WithExceptionIntercept(ex =>
                 {
-                    case DocumentType.Undefined:
-                    case DocumentType.Header:
-                    default:
-                        continue;
-
-                    case DocumentType.Event:
-                        var eventDocument = masterDocument.EventDocument!;
-                        if (eventDocument.Data is null)
-                            throw new EventForgingException($"Event {eventDocument.Id ?? "NULL"} has no data.");
-                        yield return new EventDatabaseRecord(
-                            Guid.Parse(eventDocument.Id!),
-                            eventDocument.EventNumber,
-                            eventDocument.EventType!,
-                            DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime,
-                            eventDocument.Data,
-                            eventDocument.Metadata?.ConversationId ?? Guid.Empty,
-                            eventDocument.Metadata?.InitiatorId ?? Guid.Empty,
-                            eventDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
-                        break;
-
-                    case DocumentType.EventsPacket:
-                        var eventsPacketDocument = masterDocument.EventsPacketDocument!;
-                        foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
-                        {
-                            if (e.Data is null)
-                                throw new EventForgingException($"Event {e.EventId} has no data.");
-
-                            yield return new EventDatabaseRecord(
-                                e.EventId,
-                                e.EventNumber,
-                                e.EventType!,
-                                DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime,
-                                e.Data,
-                                eventsPacketDocument.Metadata?.ConversationId ?? Guid.Empty,
-                                eventsPacketDocument.Metadata?.InitiatorId ?? Guid.Empty,
-                                eventsPacketDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
-                        }
-
-                        break;
-                }
-            }
+                    activity?.RecordException(ex);
+                    activity?.Complete();
+                },
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            throw;
+        }
+        finally
+        {
+            activity?.Complete();
         }
     }
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
-        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteActivity();
+        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteActivity(retrievedVersion);
 
         try
         {
@@ -156,181 +123,292 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
     }
 
-    public async Task InternalWriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsAsync<TAggregate>(string aggregateId, Activity? activity, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
-        if (events == null) throw new ArgumentNullException(nameof(events));
-
-        if (events.Count == 0)
-        {
-            return;
-        }
 
         var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
 
-        var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };
-        var transaction = GetContainer<TAggregate>().CreateTransactionalBatch(new PartitionKey(streamId));
+        activity.EnrichEventDatabaseReadActivityWithStreamId(streamId);
 
-        if (retrievedVersion.AggregateDoesNotExist)
-            transaction.CreateItem(CreateStreamHeaderDocument(streamId, events.Count), requestOptions);
-        else
+        var container = GetContainer<TAggregate>();
+
+        var iterator = container.GetItemQueryIterator<MasterDocument>("SELECT * FROM x ORDER BY x.eventNumber", requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
+
+        var pageCount = 0;
+        var totalRequestCharge = 0.0;
+
+        while (iterator.HasMoreResults)
         {
-            long expectedHeaderVersion;
-            if (expectedVersion.IsAny || expectedVersion.IsRetrieved)
-            {
-                // IsAny is treated the same as IsRetrieved because event numbers are numbered using retrieved version. There is no way, at least as of 05/06/2023,
-                // to read version from header document and use read value in the same transaction.
-                expectedHeaderVersion = retrievedVersion;
-            }
-            else if (expectedVersion.IsNone)
-            {
-                // Because this is the case in which lastReadAggregateVersion.AggregateExists is true then this case (expectedVersion.IsNone) will never occur
-                // due to the check performed in the Repository class (lastReadAggregateVersion.AggregateExists && expectedVersion.IsNone already throws exception).
-                // I left this code for clarity.
-                expectedHeaderVersion = -1L;
-            }
-            else
-                expectedHeaderVersion = expectedVersion;
+            var page = await iterator.ReadNextAsync(cancellationToken);
 
-            var headerPatchRequestOptions = new TransactionalBatchPatchItemRequestOptions
-            {
-                EnableContentResponseOnWrite = false,
-                FilterPredicate = $"FROM x WHERE x.version = {expectedHeaderVersion}",
-            };
+            ++pageCount;
+            totalRequestCharge += page.RequestCharge;
+            activity.EnrichEventDatabaseReadActivityWithReadPageInformation(pageCount, totalRequestCharge);
+            activity.RecordEventDatabaseReadActivityResultPageReadEvent(page.StatusCode, page.RequestCharge);
 
-            transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, headerPatchRequestOptions);
-        }
-
-        if (_cosmosConfiguration.EventPacking is EventPackingMode.Disabled or EventPackingMode.UniformDistributionFilling)
-        {
-            if (events.Count <= MaxNumberOfUnpackedEventsInTransaction)
+            foreach (var masterDocument in page)
             {
-                for (var eIx = 0; eIx < events.Count; ++eIx)
+                switch (masterDocument.DocumentType)
                 {
-                    var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-                    var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, events[eIx], conversationId, initiatorId, customProperties);
-                    transaction.CreateItem(eventDocument, requestOptions);
-                }
-            }
-            else if (_cosmosConfiguration.EventPacking is EventPackingMode.UniformDistributionFilling)
-            {
-                var eventPackets = events.SplitEvenly(MaxNumberOfUnpackedEventsInTransaction);
-                var eIx = 0;
-                foreach (var ep in eventPackets)
-                {
-                    if (ep.Count == 1)
-                    {
-                        var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-                        var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, ep[0], conversationId, initiatorId, customProperties);
-                        transaction.CreateItem(eventDocument, requestOptions);
-                        ++eIx;
-                    }
-                    else
-                    {
-                        var epdEvents = new List<EventsPacketDocument.Event>();
-                        foreach (var e in ep)
+                    case DocumentType.Undefined:
+                    case DocumentType.Header:
+                    default:
+                        continue;
+
+                    case DocumentType.Event:
+                        var eventDocument = masterDocument.EventDocument!;
+                        if (eventDocument.Data is null)
+                            throw new EventForgingException($"Event {eventDocument.Id ?? "NULL"} has no data.");
+                        yield return new EventDatabaseRecord(
+                            Guid.Parse(eventDocument.Id!),
+                            eventDocument.EventNumber,
+                            eventDocument.EventType!,
+                            DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime,
+                            eventDocument.Data,
+                            eventDocument.Metadata?.ConversationId ?? Guid.Empty,
+                            eventDocument.Metadata?.InitiatorId ?? Guid.Empty,
+                            eventDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
+                        break;
+
+                    case DocumentType.EventsPacket:
+                        var eventsPacketDocument = masterDocument.EventsPacketDocument!;
+                        foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
                         {
-                            var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+                            if (e.Data is null)
+                                throw new EventForgingException($"Event {e.EventId} has no data.");
 
-                            var epdEvent = new EventsPacketDocument.Event
-                            {
-                                EventId = eventId,
-                                EventNumber = retrievedVersion + eIx + 1L,
-                                Data = e,
-                            };
-
-                            epdEvents.Add(epdEvent);
-                            ++eIx;
+                            yield return new EventDatabaseRecord(
+                                e.EventId,
+                                e.EventNumber,
+                                e.EventType!,
+                                DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime,
+                                e.Data,
+                                eventsPacketDocument.Metadata?.ConversationId ?? Guid.Empty,
+                                eventsPacketDocument.Metadata?.InitiatorId ?? Guid.Empty,
+                                eventsPacketDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
                         }
 
-                        var eventsPacketDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
-
-                        transaction.CreateItem(eventsPacketDocument, requestOptions);
-                    }
+                        break;
                 }
             }
-            else
-            {
-                // https://docs.microsoft.com/en-us/azure/cosmos-db/sql/transactional-batch
-                // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved.
-                throw new EventForgingException($"Max number of events is {MaxNumberOfUnpackedEventsInTransaction}.");
-            }
         }
-        else if (_cosmosConfiguration.EventPacking is EventPackingMode.AllEventsInOnePacket)
+    }
+
+    private async Task InternalWriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    {
+        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteAttemptActivity(retrievedVersion);
+
+        try
         {
-            var epdEvents = new List<EventsPacketDocument.Event>();
-            for (var eIx = 0; eIx < events.Count; ++eIx)
+            if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
+            if (events == null) throw new ArgumentNullException(nameof(events));
+
+            if (events.Count == 0)
             {
-                var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-
-                var epdEvent = new EventsPacketDocument.Event
-                {
-                    EventId = eventId,
-                    EventNumber = retrievedVersion + eIx + 1L,
-                    Data = events[eIx],
-                };
-
-                epdEvents.Add(epdEvent);
-            }
-
-            var eventsPacketDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
-
-            transaction.CreateItem(eventsPacketDocument, requestOptions);
-        }
-        else
-        {
-            throw new EventForgingException($"Unknown event packing mode: {_cosmosConfiguration.EventPacking}.");
-        }
-
-        var response = await transaction.ExecuteAsync(cancellationToken);
-
-
-        if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
-        {
-            var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(aggregateId, initiatorId, cancellationToken);
-            if (alreadyWritten)
-            {
-                _logger.WriteIgnoredDueToIdempotencyCheck(aggregateId, initiatorId);
                 return;
             }
 
-            var headerItem = await ReadHeaderAsync<TAggregate>(streamId, cancellationToken);
+            var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
 
-            throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, retrievedVersion, headerItem.Version);
+            activity?.EnrichEventDatabaseWriteAttemptActivityWithStreamId(streamId);
+
+            var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };
+            var transaction = GetContainer<TAggregate>().CreateTransactionalBatch(new PartitionKey(streamId));
+
+            if (retrievedVersion.AggregateDoesNotExist)
+                transaction.CreateItem(CreateStreamHeaderDocument(streamId, events.Count), requestOptions);
+            else
+            {
+                long expectedHeaderVersion;
+                if (expectedVersion.IsAny || expectedVersion.IsRetrieved)
+                {
+                    // IsAny is treated the same as IsRetrieved because event numbers are numbered using retrieved version. There is no way, at least as of 05/06/2023,
+                    // to read version from header document and use read value in the same transaction.
+                    expectedHeaderVersion = retrievedVersion;
+                }
+                else if (expectedVersion.IsNone)
+                {
+                    // Because this is the case in which lastReadAggregateVersion.AggregateExists is true then this case (expectedVersion.IsNone) will never occur
+                    // due to the check performed in the Repository class (lastReadAggregateVersion.AggregateExists && expectedVersion.IsNone already throws exception).
+                    // I left this code for clarity.
+                    expectedHeaderVersion = -1L;
+                }
+                else
+                    expectedHeaderVersion = expectedVersion;
+
+                var headerPatchRequestOptions = new TransactionalBatchPatchItemRequestOptions
+                {
+                    EnableContentResponseOnWrite = false,
+                    FilterPredicate = $"FROM x WHERE x.version = {expectedHeaderVersion}",
+                };
+
+                transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, headerPatchRequestOptions);
+            }
+
+            if (_cosmosConfiguration.EventPacking is EventPackingMode.Disabled or EventPackingMode.UniformDistributionFilling)
+            {
+                if (events.Count <= MaxNumberOfUnpackedEventsInTransaction)
+                {
+                    for (var eIx = 0; eIx < events.Count; ++eIx)
+                    {
+                        var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+                        var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, events[eIx], conversationId, initiatorId, customProperties);
+                        transaction.CreateItem(eventDocument, requestOptions);
+                    }
+                }
+                else if (_cosmosConfiguration.EventPacking is EventPackingMode.UniformDistributionFilling)
+                {
+                    var eventPackets = events.SplitEvenly(MaxNumberOfUnpackedEventsInTransaction);
+                    var eIx = 0;
+                    foreach (var ep in eventPackets)
+                    {
+                        if (ep.Count == 1)
+                        {
+                            var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+                            var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, ep[0], conversationId, initiatorId, customProperties);
+                            transaction.CreateItem(eventDocument, requestOptions);
+                            ++eIx;
+                        }
+                        else
+                        {
+                            var epdEvents = new List<EventsPacketDocument.Event>();
+                            foreach (var e in ep)
+                            {
+                                var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+
+                                var epdEvent = new EventsPacketDocument.Event
+                                {
+                                    EventId = eventId,
+                                    EventNumber = retrievedVersion + eIx + 1L,
+                                    Data = e,
+                                };
+
+                                epdEvents.Add(epdEvent);
+                                ++eIx;
+                            }
+
+                            var eventsPacketDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
+
+                            transaction.CreateItem(eventsPacketDocument, requestOptions);
+                        }
+                    }
+                }
+                else
+                {
+                    // https://docs.microsoft.com/en-us/azure/cosmos-db/sql/transactional-batch
+                    // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved.
+                    throw new EventForgingException($"Max number of events is {MaxNumberOfUnpackedEventsInTransaction}.");
+                }
+            }
+            else if (_cosmosConfiguration.EventPacking is EventPackingMode.AllEventsInOnePacket)
+            {
+                var epdEvents = new List<EventsPacketDocument.Event>();
+                for (var eIx = 0; eIx < events.Count; ++eIx)
+                {
+                    var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
+
+                    var epdEvent = new EventsPacketDocument.Event
+                    {
+                        EventId = eventId,
+                        EventNumber = retrievedVersion + eIx + 1L,
+                        Data = events[eIx],
+                    };
+
+                    epdEvents.Add(epdEvent);
+                }
+
+                var eventsPacketDocument = CreateStreamEventsPacketDocument(streamId, epdEvents, conversationId, initiatorId, customProperties);
+
+                transaction.CreateItem(eventsPacketDocument, requestOptions);
+            }
+            else
+            {
+                throw new EventForgingException($"Unknown event packing mode: {_cosmosConfiguration.EventPacking}.");
+            }
+
+            var response = await transaction.ExecuteAsync(cancellationToken);
+
+            activity?.EnrichEventDatabaseWriteAttemptActivityWithResponse(response);
+
+            if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
+            {
+                var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(streamId, initiatorId, cancellationToken);
+                if (alreadyWritten)
+                {
+                    _logger.WriteIgnoredDueToIdempotencyCheck(streamId, initiatorId);
+                    return;
+                }
+
+                var actualVersion = await ReadCurrentVersionAsync<TAggregate>(streamId, cancellationToken);
+
+                throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, retrievedVersion, actualVersion);
+            }
+
+            if (!response.IsSuccessStatusCode)
+                throw new EventForgingException(response.ErrorMessage);
         }
-
-        if (!response.IsSuccessStatusCode)
-            throw new EventForgingException(response.ErrorMessage);
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            throw;
+        }
+        finally
+        {
+            activity?.Complete();
+        }
     }
 
-    private async Task<HeaderDocument> ReadHeaderAsync<TAggregate>(string streamId, CancellationToken cancellationToken = default)
+    private async Task<int> ReadCurrentVersionAsync<TAggregate>(string streamId, CancellationToken cancellationToken = default)
     {
         try
         {
             var result = await GetContainer<TAggregate>().ReadItemAsync<MasterDocument>(HeaderDocument.CreateId(streamId), new PartitionKey(streamId), cancellationToken: cancellationToken);
-            return result.Resource.HeaderDocument!;
+
+            var currentVersion = result.Resource.HeaderDocument!.Version;
+
+            Activity.Current.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("Current version of the aggregate has been read.", result.StatusCode, result.RequestCharge, new Dictionary<string, string> { { TracingAttributeNames.AggregateVersion, currentVersion.ToString() }, });
+
+            return currentVersion;
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
+            Activity.Current.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("An exception occurred during the read of the current version of the aggregate.", ex.StatusCode, ex.RequestCharge);
+
             throw new EventForgingStreamNotFoundException(streamId, ex);
         }
     }
 
-    private async Task<bool> CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(string aggregateId, Guid initiatorId, CancellationToken cancellationToken = default)
+    private async Task<bool> CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(string streamId, Guid initiatorId, CancellationToken cancellationToken = default)
     {
         if (initiatorId == Guid.Empty)
             return false;
-
-        var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
 
         var query = new QueryDefinition($"SELECT VALUE COUNT(1) FROM c WHERE c.metadata.initiatorId = @initiatorId AND (c.documentType = '{DocumentType.Event.ToString()}' OR c.documentType = '{DocumentType.EventsPacket.ToString()}')")
             .WithParameter("@initiatorId", initiatorId.ToString());
         var iterator = GetContainer<TAggregate>().GetItemQueryIterator<int>(query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
 
         var page = await iterator.ReadNextAsync(cancellationToken);
-        var first = page.First();
 
-        return first > 0;
+        if (page is null)
+        {
+            return false;
+        }
+
+        var first = page.FirstOrDefault();
+        var checkResult = first > 0;
+
+        Activity.Current.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
+            "The check for any events associated with the given initiatorId has been successfully completed.",
+            page.StatusCode,
+            page.RequestCharge,
+            new Dictionary<string, string>
+            {
+                { TracingAttributeNames.InitiatorId, initiatorId.ToString() },
+                { CosmosDbTracingAttributeNames.EventDatabaseWriteIdempotencyCheckResult, checkResult.ToString().ToLower() },
+            });
+
+        return checkResult;
     }
 
     private Container GetContainer<TAggregate>()
