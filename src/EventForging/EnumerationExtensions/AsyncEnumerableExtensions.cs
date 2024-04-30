@@ -4,7 +4,7 @@ namespace EventForging.EnumerationExtensions;
 
 public static class AsyncEnumerableExtensions
 {
-    public static async IAsyncEnumerable<T> WithExceptionIntercept<T>(this IAsyncEnumerable<T> source, Action<Exception> intercept, [EnumeratorCancellation] CancellationToken cancellationToken)
+    public static async IAsyncEnumerable<T> WithExceptionIntercept<T>(this IAsyncEnumerable<T> source, Action<Exception> intercept, Action finallyCallback, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         await using var enumerator = source.ConfigureAwait(false).WithCancellation(cancellationToken).GetAsyncEnumerator();
 
@@ -22,10 +22,13 @@ public static class AsyncEnumerableExtensions
             catch (Exception ex)
             {
                 intercept(ex);
+                finallyCallback();
                 throw;
             }
 
             yield return item;
         }
+
+        finallyCallback();
     }
 }

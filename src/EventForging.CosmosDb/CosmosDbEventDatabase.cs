@@ -54,9 +54,13 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         {
             var records = InternalReadRecordsAsync<TAggregate>(aggregateId, activity, cancellationToken);
 
-            return records.WithExceptionIntercept(ex =>
+            return records.WithExceptionIntercept(
+                ex =>
                 {
                     activity?.RecordException(ex);
+                },
+                () =>
+                {
                     activity?.Complete();
                 },
                 cancellationToken);
@@ -64,11 +68,8 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         catch (Exception ex)
         {
             activity?.RecordException(ex);
-            throw;
-        }
-        finally
-        {
             activity?.Complete();
+            throw;
         }
     }
 
