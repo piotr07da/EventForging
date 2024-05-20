@@ -1,9 +1,15 @@
 ﻿// ReSharper disable InconsistentNaming
 
+using System.Diagnostics;
 using EventForging.DatabaseIntegrationTests.Common;
+using EventForging.Diagnostics;
+using EventForging.Diagnostics.Tracing;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Xunit;
 
 namespace EventForging.InMemory.Tests;
@@ -12,6 +18,9 @@ public sealed class EventHandling_tests : IAsyncLifetime
 {
     private readonly IHost _host;
     private readonly EventHandlingTestFixture _fixture;
+
+    private readonly IList<Activity> _tracing = new List<Activity>();
+    private readonly TracerProvider _tracerProvider;
 
     public EventHandling_tests()
     {
@@ -39,22 +48,38 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
         _host = hostBuilder.Build();
         _fixture = _host.Services.GetRequiredService<EventHandlingTestFixture>();
+
+        _tracerProvider = Sdk
+            .CreateTracerProviderBuilder()
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(nameof(InMemoryEventDatabase_tests)))
+            .AddSource(EventForgingDiagnosticsInfo.TracingSourceName)
+            .AddInMemoryExporter(_tracing)
+            .Build();
     }
 
     public async Task InitializeAsync()
     {
+        _tracing.Clear();
         await _host.StartAsync();
     }
 
     public async Task DisposeAsync()
     {
+        _tracerProvider.Dispose();
         await _host.StopAsync();
     }
 
-    [Fact]
-    public async Task when_aggregate_saved_then_events_handled()
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(1000, false)]
+    public async Task when_aggregate_saved_then_events_handled(int amountOfCounterEvents, bool checkTracingContinuity)
     {
-        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(5), 1000);
+        await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(5), amountOfCounterEvents);
+
+        if (checkTracingContinuity)
+        {
+            Assert.All(_tracing.Where(a => a.OperationName == TracingActivityNames.EventDispatcherDispatch), a => Assert.NotNull(a.ParentId));
+        }
     }
 
     [Fact]

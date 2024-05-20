@@ -48,7 +48,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     public IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default)
     {
-        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseReadActivity();
+        var activity = EventForgingActivitySourceProvider.ActivitySource.StartEventDatabaseReadActivity();
 
         try
         {
@@ -75,7 +75,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
-        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteActivity(retrievedVersion);
+        var activity = EventForgingActivitySourceProvider.ActivitySource.StartEventDatabaseWriteActivity(retrievedVersion);
 
         try
         {
@@ -198,7 +198,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     private async Task InternalWriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
-        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteAttemptActivity(retrievedVersion);
+        var activity = EventForgingActivitySourceProvider.ActivitySource.StartEventDatabaseWriteAttemptActivity(retrievedVersion);
 
         try
         {

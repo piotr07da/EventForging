@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using System.Runtime.ExceptionServices;
 using EventForging.Diagnostics.Logging;
+using EventForging.Diagnostics.Tracing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -38,22 +39,36 @@ internal sealed class EventDispatcher : IEventDispatcher
             return;
         }
 
-        await DispatchToEventBatchHandlersAsync(subscriptionName, receivedEventsBatch, cancellationToken);
+        var activity = EventForgingActivitySourceProvider.ActivitySource.StartEventDispatcherDispatchActivity(subscriptionName, receivedEventsBatch);
 
-        foreach (var receivedEvent in receivedEventsBatch)
+        try
         {
-            var ed = receivedEvent.EventData;
-            var ei = receivedEvent.EventInfo;
-            try
+            await DispatchToEventBatchHandlersAsync(subscriptionName, receivedEventsBatch, cancellationToken);
+
+            foreach (var receivedEvent in receivedEventsBatch)
             {
-                await DispatchToAnyEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
-                await DispatchToGenericEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
+                var ed = receivedEvent.EventData;
+                var ei = receivedEvent.EventInfo;
+                try
+                {
+                    await DispatchToAnyEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
+                    await DispatchToGenericEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while dispatching the {EventName} event to the event handlers. Stream id is {StreamId}. Event number is {EventNumber}.", ei.EventType, ei.StreamId, ei.EventNumber);
+                    throw;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error while dispatching the {EventName} event to the event handlers. Stream id is {StreamId}. Event number is {EventNumber}.", ei.EventType, ei.StreamId, ei.EventNumber);
-                throw;
-            }
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            throw;
+        }
+        finally
+        {
+            activity?.Complete();
         }
     }
 

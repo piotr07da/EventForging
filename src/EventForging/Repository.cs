@@ -20,7 +20,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     public async Task<TAggregate> GetAsync(string aggregateId, CancellationToken cancellationToken = default)
     {
-        var activity = ActivitySourceProvider.ActivitySource.StartRepositoryGetActivity<TAggregate>(aggregateId, false);
+        var activity = EventForgingActivitySourceProvider.ActivitySource.StartRepositoryGetActivity<TAggregate>(aggregateId, false);
 
         try
         {
@@ -44,7 +44,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     public async Task<TAggregate?> TryGetAsync(string aggregateId, CancellationToken cancellationToken = default)
     {
-        var activity = ActivitySourceProvider.ActivitySource.StartRepositoryGetActivity<TAggregate>(aggregateId, true);
+        var activity = EventForgingActivitySourceProvider.ActivitySource.StartRepositoryGetActivity<TAggregate>(aggregateId, true);
 
         try
         {
@@ -68,7 +68,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     public async Task SaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
     {
-        var activity = ActivitySourceProvider.ActivitySource.StartRepositorySaveActivity(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties);
+        var activity = EventForgingActivitySourceProvider.ActivitySource.StartRepositorySaveActivity(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties);
 
         try
         {
@@ -137,6 +137,12 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         var newEvents = aggregate.Events.Get().ToArray();
         customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
         customProperties ??= new Dictionary<string, string>();
+
+        if (activity?.Id != null)
+        {
+            customProperties[InternalCustomPropertyNames.ActivityId] = activity.Id;
+        }
+
         await _database.WriteAsync<TAggregate>(aggregateId, newEvents, retrievedAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
     }
 }

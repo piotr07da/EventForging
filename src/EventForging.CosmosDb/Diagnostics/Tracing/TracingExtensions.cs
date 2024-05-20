@@ -78,7 +78,7 @@ internal static class TracingExtensions
 
     internal static Activity? EnrichEventDatabaseWriteActivityWithTryCount(this Activity? activity, int tryCount)
     {
-        return activity.EnrichWithTagIfNotNull(TracingActivityNames.EventDatabaseWrite, CosmosDbTracingAttributeNames.EventDatabaseWriteTryCount, tryCount.ToString());
+        return activity.EnrichWithTagIfNotNull(TracingActivityNames.EventDatabaseWrite, CosmosDbTracingAttributeNames.EventDatabaseWriteAttemptCount, tryCount.ToString());
     }
 
     internal static Activity? StartEventDatabaseWriteAttemptActivity(this ActivitySource activitySource, AggregateVersion retrievedVersion)

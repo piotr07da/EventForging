@@ -98,7 +98,7 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
                 eventType = e.GetType().FullName!;
             }
 
-            var entry = new EventEntry(streamId, eventId, currentVersion + eIx + 1, eventType, DateTime.UtcNow, eData, new EventMetadata(conversationId, initiatorId));
+            var entry = new EventEntry(streamId, eventId, currentVersion + eIx + 1, eventType, DateTime.UtcNow, eData, new EventMetadata(conversationId, initiatorId, customProperties));
 
             newEventEntries.Add(entry);
         }

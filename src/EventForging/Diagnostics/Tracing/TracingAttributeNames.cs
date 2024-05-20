@@ -2,8 +2,9 @@ namespace EventForging.Diagnostics.Tracing;
 
 public static class TracingActivityNames
 {
-    public const string RepositoryGet = "Repository Get";
-    public const string RepositorySave = "Repository Save";
+    public const string RepositoryGet = "EF Repository Get";
+    public const string RepositorySave = "EF Repository Save";
+    public const string EventDispatcherDispatch = "EF EventDispatcher Dispatch";
 }
 
 public static class TracingAttributeNames
@@ -17,6 +18,7 @@ public static class TracingAttributeNames
     public const string InitiatorId = "initiator_id";
     public const string NullExpected = "null_expected";
     public const string CustomPropertyPrefix = "custom_property.";
+    public const string SubscriptionName = "subscription_name";
 
     public static class ExceptionEvent
     {

@@ -47,6 +47,7 @@ public sealed class EventHandlingTestFixture
 
         var user = User.RegisterWithName(userId, userName, amountOfCounterEvents);
         user.Approve();
+
         await _repository.SaveAsync(userId, user, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid(), cancellationToken: CancellationToken.None);
 
         await Task.WhenAny(tcs.Task, Task.Delay(timeout));

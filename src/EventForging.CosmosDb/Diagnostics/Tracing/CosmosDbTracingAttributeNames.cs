@@ -3,7 +3,7 @@ namespace EventForging.CosmosDb.Diagnostics.Tracing;
 public static class CosmosDbTracingAttributeNames
 {
     public const string EventDatabaseStreamId = "eventdb.stream_id";
-    public const string EventDatabaseWriteTryCount = "eventdb.write.try_count";
+    public const string EventDatabaseWriteAttemptCount = "eventdb.write.attempt_count";
     public const string EventDatabaseWriteIdempotencyCheckResult = "eventdb.write.idempotency_check_result";
     public const string EventDatabaseReadPageCount = "eventdb.read.page_count";
     public const string DatabaseSystem = "db.system";
