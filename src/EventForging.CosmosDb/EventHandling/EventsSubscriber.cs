@@ -1,4 +1,6 @@
-﻿using EventForging.Diagnostics.Logging;
+﻿using EventForging.CosmosDb.Diagnostics.Tracing;
+using EventForging.Diagnostics.Logging;
+using EventForging.Diagnostics.Tracing;
 using EventForging.EventsHandling;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
@@ -83,7 +85,22 @@ internal sealed class EventsSubscriber : IEventsSubscriber
                 continue;
             }
 
-            await _eventDispatcher.DispatchAsync(subscriptionName, new ReceivedEventsBatch(batch), cancellationToken);
+            var receivedEventsBatch = new ReceivedEventsBatch(batch);
+
+            var activity = EventForgingActivitySourceProvider.ActivitySource.StartEventsSubscriberHandleChangesActivity(subscriptionName, receivedEventsBatch);
+            try
+            {
+                await _eventDispatcher.DispatchAsync(subscriptionName, receivedEventsBatch, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                activity?.RecordException(ex);
+                throw;
+            }
+            finally
+            {
+                activity?.Complete();
+            }
         }
 
         cancellationToken.ThrowIfCancellationRequested();

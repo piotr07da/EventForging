@@ -200,6 +200,8 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     {
         var activity = EventForgingActivitySourceProvider.ActivitySource.StartEventDatabaseWriteAttemptActivity(retrievedVersion);
 
+        customProperties.StoreCurrentActivityId();
+
         try
         {
             if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));

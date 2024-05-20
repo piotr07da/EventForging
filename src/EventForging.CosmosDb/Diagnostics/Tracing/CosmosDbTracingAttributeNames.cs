@@ -11,6 +11,7 @@ public static class CosmosDbTracingAttributeNames
     public const string CosmosDbContainer = "db.cosmosdb.container";
     public const string CosmosDbStatusCode = "db.cosmosdb.status_code";
     public const string CosmosDbRequestCharge = "db.cosmosdb.request_charge";
+    public const string ChangesCount = "changes_count";
 
     public static class ResultPageReadEvent
     {

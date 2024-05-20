@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using EventForging.EventsHandling;
 
 namespace EventForging.Diagnostics.Tracing;
 
@@ -61,38 +60,5 @@ internal static class TracingExtensions
     internal static Activity? EnrichRepositorySaveActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
     {
         return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositorySave, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
-    }
-
-    internal static Activity? StartEventDispatcherDispatchActivity(this ActivitySource activitySource, string subscriptionName, ReceivedEventsBatch receivedEventsBatch)
-    {
-        var parentActivityContext = GetParentActivityContext(receivedEventsBatch);
-
-        // ReSharper disable once ExplicitCallerInfoArgument
-        var activity = activitySource.StartActivity(ActivityKind.Consumer, parentActivityContext, name: TracingActivityNames.EventDispatcherDispatch);
-        if (activity is null)
-        {
-            return null;
-        }
-
-        activity.SetTag(TracingAttributeNames.SubscriptionName, subscriptionName);
-
-        return activity;
-    }
-
-    private static ActivityContext GetParentActivityContext(ReceivedEventsBatch receivedEventsBatch)
-    {
-        if (receivedEventsBatch.Count > 0)
-        {
-            var firstEvent = receivedEventsBatch.First();
-            if (firstEvent.EventInfo.CustomProperties.TryGetValue(InternalCustomPropertyNames.ActivityId, out var activityId))
-            {
-                if (ActivityContext.TryParse(activityId, null, true, out var parentContext))
-                {
-                    return parentContext;
-                }
-            }
-        }
-
-        return default;
     }
 }

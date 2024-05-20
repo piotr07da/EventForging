@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using EventForging.Diagnostics.Tracing;
 using EventForging.Idempotency;
 using EventForging.Serialization;
 using EventStore.Client;
@@ -62,6 +63,8 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
+        customProperties.StoreCurrentActivityId();
+
         var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
         var eventsData = events.Select((e, eIx) =>
         {

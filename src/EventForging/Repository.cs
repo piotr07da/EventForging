@@ -138,11 +138,6 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
         customProperties ??= new Dictionary<string, string>();
 
-        if (activity?.Id != null)
-        {
-            customProperties[InternalCustomPropertyNames.ActivityId] = activity.Id;
-        }
-
         await _database.WriteAsync<TAggregate>(aggregateId, newEvents, retrievedAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
     }
 }

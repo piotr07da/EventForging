@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using EventForging.Diagnostics.Tracing;
 using EventForging.EventsHandling;
 using EventForging.Idempotency;
 using EventForging.InMemory.EventHandling;
@@ -68,6 +69,8 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
+        customProperties.StoreCurrentActivityId();
+
         var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
         _streams.TryGetValue(streamId, out var currentEventEntries);
         currentEventEntries ??= new Dictionary<Guid, EventEntry>();

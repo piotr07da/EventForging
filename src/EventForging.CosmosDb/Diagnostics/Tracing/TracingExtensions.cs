@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using EventForging.Diagnostics.Tracing;
+using EventForging.EventsHandling;
 using Microsoft.Azure.Cosmos;
 
 namespace EventForging.CosmosDb.Diagnostics.Tracing;
@@ -148,5 +149,34 @@ internal static class TracingExtensions
         activity.AddEvent(new ActivityEvent(eventName, DateTimeOffset.UtcNow, tags));
 
         return activity;
+    }
+
+    internal static Activity? StartEventsSubscriberHandleChangesActivity(this ActivitySource activitySource, string subscriptionName, ReceivedEventsBatch receivedEventsBatch)
+    {
+        var parentActivityContext = GetParentActivityContext(receivedEventsBatch);
+
+        // ReSharper disable once ExplicitCallerInfoArgument
+        var activity = activitySource.StartActivity(ActivityKind.Consumer, parentActivityContext, name: TracingActivityNames.EventsSubscriberHandleChanges);
+
+        if (activity is null)
+        {
+            return null;
+        }
+
+        activity.SetTag(TracingAttributeNames.SubscriptionName, subscriptionName);
+        activity.SetTag(CosmosDbTracingAttributeNames.ChangesCount, receivedEventsBatch.Count.ToString());
+
+        return activity;
+    }
+
+    private static ActivityContext GetParentActivityContext(ReceivedEventsBatch receivedEventsBatch)
+    {
+        if (receivedEventsBatch.Count > 0)
+        {
+            var firstEvent = receivedEventsBatch.First();
+            return firstEvent.EventInfo.CustomProperties.RestoreActivityContext();
+        }
+
+        return default;
     }
 }

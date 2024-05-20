@@ -1,7 +1,6 @@
 ﻿using System.Reflection;
 using System.Runtime.ExceptionServices;
 using EventForging.Diagnostics.Logging;
-using EventForging.Diagnostics.Tracing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -39,36 +38,22 @@ internal sealed class EventDispatcher : IEventDispatcher
             return;
         }
 
-        var activity = EventForgingActivitySourceProvider.ActivitySource.StartEventDispatcherDispatchActivity(subscriptionName, receivedEventsBatch);
+        await DispatchToEventBatchHandlersAsync(subscriptionName, receivedEventsBatch, cancellationToken);
 
-        try
+        foreach (var receivedEvent in receivedEventsBatch)
         {
-            await DispatchToEventBatchHandlersAsync(subscriptionName, receivedEventsBatch, cancellationToken);
-
-            foreach (var receivedEvent in receivedEventsBatch)
+            var ed = receivedEvent.EventData;
+            var ei = receivedEvent.EventInfo;
+            try
             {
-                var ed = receivedEvent.EventData;
-                var ei = receivedEvent.EventInfo;
-                try
-                {
-                    await DispatchToAnyEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
-                    await DispatchToGenericEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error while dispatching the {EventName} event to the event handlers. Stream id is {StreamId}. Event number is {EventNumber}.", ei.EventType, ei.StreamId, ei.EventNumber);
-                    throw;
-                }
+                await DispatchToAnyEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
+                await DispatchToGenericEventHandlersAsync(subscriptionName, ed, ei, cancellationToken);
             }
-        }
-        catch (Exception ex)
-        {
-            activity?.RecordException(ex);
-            throw;
-        }
-        finally
-        {
-            activity?.Complete();
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while dispatching the {EventName} event to the event handlers. Stream id is {StreamId}. Event number is {EventNumber}.", ei.EventType, ei.StreamId, ei.EventNumber);
+                throw;
+            }
         }
     }
 

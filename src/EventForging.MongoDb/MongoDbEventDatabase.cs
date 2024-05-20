@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text.Json;
+using EventForging.Diagnostics.Tracing;
 using EventForging.Serialization;
 
 namespace EventForging.MongoDb;
@@ -39,6 +40,8 @@ internal sealed class MongoDbEventDatabase : IEventDatabase
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
+        customProperties.StoreCurrentActivityId();
+
         await Task.CompletedTask;
     }
 }
