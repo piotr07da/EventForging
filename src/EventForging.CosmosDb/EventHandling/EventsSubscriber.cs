@@ -87,7 +87,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
             var receivedEventsBatch = new ReceivedEventsBatch(batch);
 
-            var activity = EventForgingActivitySourceProvider.ActivitySource.StartEventsSubscriberHandleChangesActivity(subscriptionName, receivedEventsBatch);
+            var activity = ActivitySourceProvider.ActivitySource.StartEventsSubscriberHandleChangesActivity(subscriptionName, receivedEventsBatch);
             try
             {
                 await _eventDispatcher.DispatchAsync(subscriptionName, receivedEventsBatch, cancellationToken);
