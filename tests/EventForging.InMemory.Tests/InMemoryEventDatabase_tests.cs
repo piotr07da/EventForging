@@ -15,7 +15,7 @@ namespace EventForging.InMemory.Tests;
 
 public class InMemoryEventDatabase_tests : IAsyncLifetime
 {
-    private readonly IList<Activity> _tracing = new List<Activity>();
+    private readonly ICollection<Activity> _tracing = new List<Activity>();
     private readonly TracerProvider _tracerProvider;
 
     public InMemoryEventDatabase_tests()

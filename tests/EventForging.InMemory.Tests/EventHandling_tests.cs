@@ -20,7 +20,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
     private readonly IHost _host;
     private readonly EventHandlingTestFixture _fixture;
 
-    private readonly IList<Activity> _tracing = new List<Activity>();
+    private readonly ICollection<Activity> _tracing = new List<Activity>();
     private readonly TracerProvider _tracerProvider;
 
     public EventHandling_tests()
@@ -52,7 +52,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
         _tracerProvider = Sdk
             .CreateTracerProviderBuilder()
-            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(nameof(InMemoryEventDatabase_tests)))
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(nameof(EventHandling_tests)))
             .AddSource(EventForgingDiagnosticsInfo.TracingSourceName)
             .AddSource(EventForgingInMemoryDiagnosticsInfo.TracingSourceName)
             .AddInMemoryExporter(_tracing)
