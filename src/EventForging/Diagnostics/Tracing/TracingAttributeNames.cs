@@ -19,6 +19,7 @@ public static class TracingAttributeNames
     public const string NullExpected = "null_expected";
     public const string CustomPropertyPrefix = "custom_property.";
     public const string SubscriptionName = "subscription_name";
+    public const string EventsBatchSize = "events_batch.size";
 
     public static class ExceptionEvent
     {

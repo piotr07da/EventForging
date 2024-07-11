@@ -79,6 +79,18 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         try
         {
+            if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
+            if (events == null) throw new ArgumentNullException(nameof(events));
+
+            if (events.Count == 0)
+            {
+                return;
+            }
+
+            var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
+
+            activity.EnrichEventDatabaseWriteActivityWithStreamId(streamId);
+
             var originalRetrievedVersion = retrievedVersion;
 
             var retryCountForUnexpectedVersionWhenExpectedVersionIsAny = _cosmosConfiguration.RetryCountForUnexpectedVersionWhenExpectedVersionIsAny;
@@ -90,7 +102,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
                 try
                 {
-                    await InternalWriteAsync<TAggregate>(aggregateId, events, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken);
+                    await InternalWriteAsync<TAggregate>(aggregateId, streamId, events, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken);
                     return;
                 }
                 catch (EventForgingUnexpectedVersionException ex)
@@ -196,7 +208,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
     }
 
-    private async Task InternalWriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    private async Task InternalWriteAsync<TAggregate>(string aggregateId, string streamId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
         var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteAttemptActivity(retrievedVersion);
 
@@ -204,16 +216,6 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         try
         {
-            if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
-            if (events == null) throw new ArgumentNullException(nameof(events));
-
-            if (events.Count == 0)
-            {
-                return;
-            }
-
-            var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
-
             activity?.EnrichEventDatabaseWriteAttemptActivityWithStreamId(streamId);
 
             var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };

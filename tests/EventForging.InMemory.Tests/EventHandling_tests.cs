@@ -4,6 +4,7 @@ using System.Diagnostics;
 using EventForging.DatabaseIntegrationTests.Common;
 using EventForging.Diagnostics;
 using EventForging.Diagnostics.Tracing;
+using EventForging.InMemory.Diagnostics;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -53,6 +54,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
             .CreateTracerProviderBuilder()
             .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(nameof(InMemoryEventDatabase_tests)))
             .AddSource(EventForgingDiagnosticsInfo.TracingSourceName)
+            .AddSource(EventForgingInMemoryDiagnosticsInfo.TracingSourceName)
             .AddInMemoryExporter(_tracing)
             .Build();
     }
@@ -79,6 +81,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
         if (checkTracingContinuity)
         {
             Assert.All(_tracing.Where(a => a.OperationName == TracingActivityNames.EventDispatcherDispatch), a => Assert.NotNull(a.ParentId));
+            Assert.All(_tracing.Where(a => a.OperationName == Diagnostics.Tracing.TracingActivityNames.SubscriptionReceiveEvent), a => Assert.NotNull(a.ParentId));
         }
     }
 

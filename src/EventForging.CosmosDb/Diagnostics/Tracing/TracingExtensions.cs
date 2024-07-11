@@ -77,6 +77,11 @@ internal static class TracingExtensions
         return activity;
     }
 
+    internal static Activity? EnrichEventDatabaseWriteActivityWithStreamId(this Activity? activity, string streamId)
+    {
+        return activity.EnrichWithTagIfNotNull(TracingActivityNames.EventDatabaseWrite, CosmosDbTracingAttributeNames.EventDatabaseStreamId, streamId);
+    }
+
     internal static Activity? EnrichEventDatabaseWriteActivityWithTryCount(this Activity? activity, int tryCount)
     {
         return activity.EnrichWithTagIfNotNull(TracingActivityNames.EventDatabaseWrite, CosmosDbTracingAttributeNames.EventDatabaseWriteAttemptCount, tryCount.ToString());

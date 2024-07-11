@@ -4,6 +4,7 @@ using EventForging.Diagnostics.Tracing;
 using EventForging.EventsHandling;
 using EventForging.InMemory.Diagnostics.Tracing;
 using Microsoft.Extensions.Logging;
+using TracingActivityNames = EventForging.InMemory.Diagnostics.Tracing.TracingActivityNames;
 
 namespace EventForging.InMemory.EventHandling;
 
@@ -40,7 +41,7 @@ internal sealed class Subscription
                 while (!succeeded)
                 {
                     // ReSharper disable once ExplicitCallerInfoArgument
-                    var activity = ActivitySourceProvider.ActivitySource.StartActivity(ActivityKind.Consumer, entry.EventInfo.CustomProperties.RestoreActivityContext(), name: "EF Mem Receive Event");
+                    var activity = ActivitySourceProvider.ActivitySource.StartActivity(ActivityKind.Consumer, entry.EventInfo.CustomProperties.RestoreActivityContext(), name: TracingActivityNames.SubscriptionReceiveEvent);
                     try
                     {
                         await _eventDispatcher.DispatchAsync(_name, entry.EventData, entry.EventInfo, _cancellationTokenSource.Token);
