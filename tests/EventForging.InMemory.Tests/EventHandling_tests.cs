@@ -80,8 +80,16 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
         if (checkTracingContinuity)
         {
-            Assert.All(_tracing.Where(a => a.OperationName == TracingActivityNames.EventDispatcherDispatch), a => Assert.NotNull(a.ParentId));
-            Assert.All(_tracing.Where(a => a.OperationName == Diagnostics.Tracing.TracingActivityNames.SubscriptionReceiveEvent), a => Assert.NotNull(a.ParentId));
+            Assert.All(_tracing.Where(a => a.OperationName == TracingActivityNames.EventDispatcherDispatch), a =>
+            {
+                Assert.NotNull(a.ParentId);
+                Assert.NotNull(a.Parent);
+            });
+            Assert.All(_tracing.Where(a => a.OperationName == Diagnostics.Tracing.TracingActivityNames.SubscriptionReceiveEvent), a =>
+            {
+                Assert.NotNull(a.ParentId);
+                Assert.Null(a.Parent);
+            });
         }
     }
 

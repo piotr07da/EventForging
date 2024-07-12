@@ -65,8 +65,17 @@ internal static class TracingExtensions
 
     internal static Activity? StartEventDispatcherDispatchActivity(this ActivitySource activitySource, string subscriptionName, ReceivedEventsBatch receivedEventsBatch)
     {
-        var parentActivityContext = GetParentActivityContext(receivedEventsBatch);
-        var activity = activitySource.StartActivity(TracingActivityNames.EventDispatcherDispatch, ActivityKind.Consumer, parentActivityContext);
+        Activity? activity;
+        if (Activity.Current is not null)
+        {
+            // ReSharper disable once ExplicitCallerInfoArgument
+            activity = activitySource.StartActivity(TracingActivityNames.EventDispatcherDispatch, ActivityKind.Consumer);
+        }
+        else
+        {
+            var parentActivityContext = GetParentActivityContext(receivedEventsBatch);
+            activity = activitySource.StartActivity(TracingActivityNames.EventDispatcherDispatch, ActivityKind.Consumer, parentActivityContext);
+        }
 
         if (activity is null)
         {
@@ -81,12 +90,6 @@ internal static class TracingExtensions
 
     private static ActivityContext GetParentActivityContext(ReceivedEventsBatch receivedEventsBatch)
     {
-        var parentActivity = Activity.Current;
-        if (parentActivity is not null)
-        {
-            return parentActivity.Context;
-        }
-
         if (receivedEventsBatch.Count > 0)
         {
             var firstEvent = receivedEventsBatch.First();
