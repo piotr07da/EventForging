@@ -24,7 +24,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
         try
         {
-            return await InternalTryGetAsync(aggregateId, cancellationToken) ?? throw new AggregateNotFoundEventForgingException(typeof(TAggregate), aggregateId);
+            return await InternalTryGetAsync(aggregateId, activity, cancellationToken) ?? throw new AggregateNotFoundEventForgingException(typeof(TAggregate), aggregateId);
         }
         catch (Exception ex)
         {
@@ -48,7 +48,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
         try
         {
-            return await InternalTryGetAsync(aggregateId, cancellationToken).ConfigureAwait(false);
+            return await InternalTryGetAsync(aggregateId, activity, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -72,7 +72,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
         try
         {
-            await InternalSaveAsync(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
+            await InternalSaveAsync(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties, activity, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -85,10 +85,8 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         }
     }
 
-    private async Task<TAggregate?> InternalTryGetAsync(string aggregateId, CancellationToken cancellationToken = default)
+    private async Task<TAggregate?> InternalTryGetAsync(string aggregateId, Activity? activity, CancellationToken cancellationToken = default)
     {
-        var activity = Activity.Current;
-
         var aggregate = AggregateProxyGenerator.Create<TAggregate>();
         var eventApplier = EventApplier.CreateFor(aggregate);
 
@@ -115,14 +113,12 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         return aggregate;
     }
 
-    private async Task InternalSaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, CancellationToken cancellationToken = default)
+    private async Task InternalSaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, Activity? activity, CancellationToken cancellationToken = default)
     {
-        var activity = Activity.Current;
-
         var aggregateMetadata = aggregate.GetAggregateMetadata();
         var retrievedAggregateVersion = aggregateMetadata.RetrievedVersion;
 
-        activity.EnrichRepositorySaveActivityWithAggregateVersion(retrievedAggregateVersion);
+        activity?.EnrichRepositorySaveActivityWithAggregateVersion(retrievedAggregateVersion);
 
         if (expectedVersion.IsNone && retrievedAggregateVersion.AggregateExists)
         {
@@ -137,6 +133,7 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         var newEvents = aggregate.Events.Get().ToArray();
         customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
         customProperties ??= new Dictionary<string, string>();
+        customProperties.StoreCurrentActivityId(); // Can (and should) be later overwritten inside any database-specific implementation. It is here only to ensure that if any database-specific implementation does not store ActivityId then at least it is stored at this level.
 
         await _database.WriteAsync<TAggregate>(aggregateId, newEvents, retrievedAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
     }

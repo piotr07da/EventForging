@@ -338,14 +338,14 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
             if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
             {
-                var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(streamId, initiatorId, cancellationToken);
+                var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(streamId, initiatorId, activity, cancellationToken);
                 if (alreadyWritten)
                 {
                     _logger.WriteIgnoredDueToIdempotencyCheck(streamId, initiatorId);
                     return;
                 }
 
-                var actualVersion = await ReadCurrentVersionAsync<TAggregate>(streamId, cancellationToken);
+                var actualVersion = await ReadCurrentVersionAsync<TAggregate>(streamId, activity, cancellationToken);
 
                 throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, retrievedVersion, actualVersion);
             }
@@ -364,7 +364,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
     }
 
-    private async Task<int> ReadCurrentVersionAsync<TAggregate>(string streamId, CancellationToken cancellationToken = default)
+    private async Task<int> ReadCurrentVersionAsync<TAggregate>(string streamId, Activity? activity, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -372,19 +372,19 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
             var currentVersion = result.Resource.HeaderDocument!.Version;
 
-            Activity.Current.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("Current version of the aggregate has been read.", result.StatusCode, result.RequestCharge, new Dictionary<string, string> { { TracingAttributeNames.AggregateVersion, currentVersion.ToString() }, });
+            activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("Current version of the aggregate has been read.", result.StatusCode, result.RequestCharge, new Dictionary<string, string> { { TracingAttributeNames.AggregateVersion, currentVersion.ToString() }, });
 
             return currentVersion;
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            Activity.Current.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("An exception occurred during the read of the current version of the aggregate.", ex.StatusCode, ex.RequestCharge);
+            activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("An exception occurred during the read of the current version of the aggregate.", ex.StatusCode, ex.RequestCharge);
 
             throw new EventForgingStreamNotFoundException(streamId, ex);
         }
     }
 
-    private async Task<bool> CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(string streamId, Guid initiatorId, CancellationToken cancellationToken = default)
+    private async Task<bool> CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(string streamId, Guid initiatorId, Activity? activity, CancellationToken cancellationToken = default)
     {
         if (initiatorId == Guid.Empty)
             return false;
@@ -403,7 +403,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         var first = page.FirstOrDefault();
         var checkResult = first > 0;
 
-        Activity.Current.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
+        activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
             "The check for any events associated with the given initiatorId has been successfully completed.",
             page.StatusCode,
             page.RequestCharge,
