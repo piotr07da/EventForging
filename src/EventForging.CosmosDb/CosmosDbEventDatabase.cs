@@ -21,6 +21,8 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     private readonly IStreamIdFactory _streamIdFactory;
     private readonly IEventForgingConfiguration _configuration;
     private readonly ICosmosDbEventForgingConfiguration _cosmosConfiguration;
+    private readonly IEventSerializer _eventSerializer;
+    private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
     private readonly ILogger _logger;
 
     public CosmosDbEventDatabase(
@@ -28,12 +30,16 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         IStreamIdFactory streamIdFactory,
         IEventForgingConfiguration configuration,
         ICosmosDbEventForgingConfiguration cosmosConfiguration,
+        IEventSerializer eventSerializer,
+        IJsonSerializerOptionsProvider serializerOptionsProvider,
         IEventForgingLoggerProvider loggerProvider)
     {
         _cosmosDbProvider = cosmosDbProvider ?? throw new ArgumentNullException(nameof(cosmosDbProvider));
         _streamIdFactory = streamIdFactory ?? throw new ArgumentNullException(nameof(streamIdFactory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _cosmosConfiguration = cosmosConfiguration ?? throw new ArgumentNullException(nameof(cosmosConfiguration));
+        _eventSerializer = eventSerializer;
+        _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
         _logger = loggerProvider.Logger;
     }
 
@@ -146,66 +152,70 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
         var container = GetContainer<TAggregate>();
 
-        var iterator = container.GetItemQueryIterator<MasterDocument>("SELECT * FROM x ORDER BY x.eventNumber", requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
-
         var pageCount = 0;
         var totalRequestCharge = 0.0;
 
-        while (iterator.HasMoreResults)
-        {
-            var page = await iterator.ReadNextAsync(cancellationToken);
-
-            ++pageCount;
-            totalRequestCharge += page.RequestCharge;
-            activity.EnrichEventDatabaseReadActivityWithReadPageInformation(pageCount, totalRequestCharge);
-            activity.RecordEventDatabaseReadActivityResultPageReadEvent(page.StatusCode, page.RequestCharge);
-
-            foreach (var masterDocument in page)
+        var iterator = container.IterateAsync(
+            new QueryDefinition("SELECT * FROM x ORDER BY x.eventNumber"),
+            new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, },
+            _serializerOptionsProvider.Get(),
+            pageResponseMessage =>
             {
-                switch (masterDocument.DocumentType)
+                ++pageCount;
+                totalRequestCharge += pageResponseMessage.Headers.RequestCharge;
+                activity.EnrichEventDatabaseReadActivityWithReadPageInformation(pageCount, totalRequestCharge);
+                activity.RecordEventDatabaseReadActivityResultPageReadEvent(pageResponseMessage.StatusCode, pageResponseMessage.Headers.RequestCharge);
+            },
+            cancellationToken);
+
+        await foreach (var item in iterator)
+        {
+            if (item.TryHandleAs<EventDocument>(DocumentType.Event.ToString(), out var eventDocument))
+            {
+                var eventId = Guid.Parse(eventDocument.Id!);
+                var deserializedEventData = DeserializeEventData(eventDocument.StreamId!, eventDocument.Id!, eventId, eventDocument.Data, eventDocument.EventType);
+
+                yield return new EventDatabaseRecord(
+                    eventId,
+                    eventDocument.EventNumber,
+                    eventDocument.EventType!,
+                    DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime,
+                    deserializedEventData,
+                    eventDocument.Metadata?.ConversationId ?? Guid.Empty,
+                    eventDocument.Metadata?.InitiatorId ?? Guid.Empty,
+                    eventDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
+            }
+
+            if (item.TryHandleAs<EventsPacketDocument>(DocumentType.EventsPacket.ToString(), out var eventsPacketDocument))
+            {
+                foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
                 {
-                    case DocumentType.Undefined:
-                    case DocumentType.Header:
-                    default:
-                        continue;
+                    var deserializeEventData = DeserializeEventData(eventsPacketDocument.StreamId!, eventsPacketDocument.Id!, e.EventId, e.Data, e.EventType);
 
-                    case DocumentType.Event:
-                        var eventDocument = masterDocument.EventDocument!;
-                        if (eventDocument.Data is null)
-                            throw new EventForgingException($"Event {eventDocument.Id ?? "NULL"} has no data.");
-                        yield return new EventDatabaseRecord(
-                            Guid.Parse(eventDocument.Id!),
-                            eventDocument.EventNumber,
-                            eventDocument.EventType!,
-                            DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime,
-                            eventDocument.Data,
-                            eventDocument.Metadata?.ConversationId ?? Guid.Empty,
-                            eventDocument.Metadata?.InitiatorId ?? Guid.Empty,
-                            eventDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
-                        break;
-
-                    case DocumentType.EventsPacket:
-                        var eventsPacketDocument = masterDocument.EventsPacketDocument!;
-                        foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
-                        {
-                            if (e.Data is null)
-                                throw new EventForgingException($"Event {e.EventId} has no data.");
-
-                            yield return new EventDatabaseRecord(
-                                e.EventId,
-                                e.EventNumber,
-                                e.EventType!,
-                                DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime,
-                                e.Data,
-                                eventsPacketDocument.Metadata?.ConversationId ?? Guid.Empty,
-                                eventsPacketDocument.Metadata?.InitiatorId ?? Guid.Empty,
-                                eventsPacketDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
-                        }
-
-                        break;
+                    yield return new EventDatabaseRecord(
+                        e.EventId,
+                        e.EventNumber,
+                        e.EventType!,
+                        DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime,
+                        deserializeEventData,
+                        eventsPacketDocument.Metadata?.ConversationId ?? Guid.Empty,
+                        eventsPacketDocument.Metadata?.InitiatorId ?? Guid.Empty,
+                        eventsPacketDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
                 }
             }
         }
+    }
+
+    private object DeserializeEventData(string streamId, string documentId, Guid eventId, object? serializedEventData, string eventType)
+    {
+        if (serializedEventData is null)
+        {
+            throw new EventForgingException($"Event data retrieved from the database cannot be null. Stream Id is '{streamId}', Document Id is {documentId}, Event Id is {eventId}.");
+        }
+
+        var eventDataAsString = serializedEventData.ToString()!;
+        var eventData = _eventSerializer.DeserializeFromString(eventType, eventDataAsString);
+        return eventData;
     }
 
     private async Task InternalWriteAsync<TAggregate>(string aggregateId, string streamId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
@@ -280,15 +290,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                             var epdEvents = new List<EventsPacketDocument.Event>();
                             foreach (var e in ep)
                             {
-                                var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-
-                                var epdEvent = new EventsPacketDocument.Event
-                                {
-                                    EventId = eventId,
-                                    EventNumber = retrievedVersion + eIx + 1L,
-                                    Data = e,
-                                };
-
+                                var epdEvent = CreateStreamEventsPacketDocumentEvent(initiatorId, retrievedVersion, eIx, e);
                                 epdEvents.Add(epdEvent);
                                 ++eIx;
                             }
@@ -302,7 +304,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                 else
                 {
                     // https://docs.microsoft.com/en-us/azure/cosmos-db/sql/transactional-batch
-                    // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved.
+                    // "Cosmos DB transactions support a maximum of 100 operations. One operation is reserved for stream metadata write. As a result, a maximum of 99 events can be saved."
                     throw new EventForgingException($"Max number of events is {MaxNumberOfUnpackedEventsInTransaction}.");
                 }
             }
@@ -311,15 +313,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                 var epdEvents = new List<EventsPacketDocument.Event>();
                 for (var eIx = 0; eIx < events.Count; ++eIx)
                 {
-                    var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-
-                    var epdEvent = new EventsPacketDocument.Event
-                    {
-                        EventId = eventId,
-                        EventNumber = retrievedVersion + eIx + 1L,
-                        Data = events[eIx],
-                    };
-
+                    var epdEvent = CreateStreamEventsPacketDocumentEvent(initiatorId, retrievedVersion, eIx, events[eIx]);
                     epdEvents.Add(epdEvent);
                 }
 
@@ -368,9 +362,9 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
     {
         try
         {
-            var result = await GetContainer<TAggregate>().ReadItemAsync<MasterDocument>(HeaderDocument.CreateId(streamId), new PartitionKey(streamId), cancellationToken: cancellationToken);
+            var result = await GetContainer<TAggregate>().ReadItemAsync<HeaderDocument>(HeaderDocument.CreateId(streamId), new PartitionKey(streamId), cancellationToken: cancellationToken);
 
-            var currentVersion = result.Resource.HeaderDocument!.Version;
+            var currentVersion = result.Resource.Version;
 
             activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("Current version of the aggregate has been read.", result.StatusCode, result.RequestCharge, new Dictionary<string, string> { { TracingAttributeNames.AggregateVersion, currentVersion.ToString() }, });
 
@@ -421,14 +415,27 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         return _cosmosDbProvider.GetAggregateContainer<TAggregate>();
     }
 
-    private static EventsPacketDocument CreateStreamEventsPacketDocument(string streamId, IReadOnlyList<EventsPacketDocument.Event> events, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
+    private EventsPacketDocument.Event CreateStreamEventsPacketDocumentEvent(Guid initiatorId, AggregateVersion retrievedVersion, int eventIndex, object eventData)
+    {
+        var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eventIndex) : Guid.NewGuid();
+        var eventDataAsJsonElement = _eventSerializer.SerializeToJsonElement(eventData, out var eventName);
+        var eventsPacketEvent = new EventsPacketDocument.Event(
+            eventId,
+            retrievedVersion + eventIndex + 1L,
+            eventName,
+            eventDataAsJsonElement);
+        return eventsPacketEvent;
+    }
+
+    private EventsPacketDocument CreateStreamEventsPacketDocument(string streamId, IReadOnlyList<EventsPacketDocument.Event> events, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
     {
         return new EventsPacketDocument(streamId, events, new EventMetadata(conversationId, initiatorId, customProperties));
     }
 
-    private static EventDocument CreateStreamEventDocument(string streamId, Guid eventId, long eventNumber, object eventData, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
+    private EventDocument CreateStreamEventDocument(string streamId, Guid eventId, long eventNumber, object eventData, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties)
     {
-        return new EventDocument(streamId, eventId, eventNumber, eventData, new EventMetadata(conversationId, initiatorId, customProperties));
+        var eventDataAsJsonElement = _eventSerializer.SerializeToJsonElement(eventData, out var eventName);
+        return new EventDocument(streamId, eventId, eventNumber, eventDataAsJsonElement, eventName, new EventMetadata(conversationId, initiatorId, customProperties));
     }
 
     private static HeaderDocument CreateStreamHeaderDocument(string streamId, int eventsCount)

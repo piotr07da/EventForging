@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 using EventForging.Serialization;
 
 namespace EventForging.CosmosDb;
@@ -9,13 +10,14 @@ internal sealed class EventDocument : IDocument
     {
     }
 
-    public EventDocument(string streamId, Guid eventId, long eventNumber, object data, EventMetadata metadata)
+    public EventDocument(string streamId, Guid eventId, long eventNumber, JsonElement data, string eventType, EventMetadata metadata)
     {
         StreamId = streamId;
         Id = eventId.ToString();
         DocumentType = DocumentType.Event;
         EventNumber = eventNumber;
         Data = data;
+        EventType = eventType;
         Metadata = metadata;
     }
 
@@ -33,7 +35,7 @@ internal sealed class EventDocument : IDocument
 
     public long EventNumber { get; set; }
 
-    public string? EventType { get; set; }
+    public string EventType { get; set; } = string.Empty;
 
     public object? Data { get; set; }
 

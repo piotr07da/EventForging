@@ -35,7 +35,7 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
         var clientOptions = new CosmosClientOptions
         {
             ConnectionMode = ConnectionMode.Direct,
-            Serializer = new EventForgingCosmosSerializer(_eventSerializer, _serializerOptionsProvider, _logger),
+            Serializer = new EventForgingSystemTextJsonSerializer(_serializerOptionsProvider),
         };
 
         if (_configuration.IgnoreServerCertificateValidation)

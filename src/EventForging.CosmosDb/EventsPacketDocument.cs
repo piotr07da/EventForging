@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using EventForging.Serialization;
 
@@ -52,13 +53,25 @@ internal sealed class EventsPacketDocument : IDocument
         };
     }
 
-    public class Event
+    public sealed class Event
     {
+        public Event()
+        {
+        }
+
+        public Event(Guid eventId, long eventNumber, string eventType, JsonElement data)
+        {
+            EventId = eventId;
+            EventNumber = eventNumber;
+            EventType = eventType;
+            Data = data;
+        }
+
         public Guid EventId { get; set; }
 
         public long EventNumber { get; set; }
 
-        public string? EventType { get; set; }
+        public string EventType { get; set; } = string.Empty;
 
         public object? Data { get; set; }
 

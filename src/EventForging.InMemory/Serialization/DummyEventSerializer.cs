@@ -1,27 +1,32 @@
-﻿using EventForging.Serialization;
+﻿using System.Text.Json;
+using EventForging.Serialization;
 
-namespace EventForging.InMemory.Serialization
+namespace EventForging.InMemory.Serialization;
+
+internal class DummyEventSerializer : IEventSerializer
 {
-    internal class DummyEventSerializer : IEventSerializer
+    public byte[] SerializeToBytes(object eventData, out string eventName)
     {
-        public byte[] SerializeToBytes(object eventData, out string eventName)
-        {
-            throw new NotImplementedException();
-        }
+        throw new NotImplementedException();
+    }
 
-        public string SerializeToString(object eventData, out string eventName)
-        {
-            throw new NotImplementedException();
-        }
+    public string SerializeToString(object eventData, out string eventName)
+    {
+        throw new NotImplementedException();
+    }
 
-        public object DeserializeFromBytes(string eventName, byte[] serializedEventData)
-        {
-            throw new NotImplementedException();
-        }
+    public JsonElement SerializeToJsonElement(object eventData, out string eventName)
+    {
+        throw new NotImplementedException();
+    }
 
-        public object DeserializeFromString(string eventName, string serializedEventData)
-        {
-            throw new NotImplementedException();
-        }
+    public object DeserializeFromBytes(string eventName, byte[] serializedEventData)
+    {
+        throw new NotImplementedException();
+    }
+
+    public object DeserializeFromString(string eventName, string serializedEventData)
+    {
+        throw new NotImplementedException();
     }
 }

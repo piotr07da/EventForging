@@ -20,7 +20,7 @@ public sealed class JsonEventSerializer : IEventSerializer
 
     public byte[] SerializeToBytes(object eventData, out string eventName)
     {
-        var serializedEventData = SerializeValue(eventData);
+        var serializedEventData = JsonSerializer.Serialize(eventData, SerializerOptions);
         var bytesSerializedEventData = Encoding.UTF8.GetBytes(serializedEventData);
         eventName = GetEventName(eventData.GetType());
         return bytesSerializedEventData;
@@ -28,7 +28,14 @@ public sealed class JsonEventSerializer : IEventSerializer
 
     public string SerializeToString(object eventData, out string eventName)
     {
-        var serializedEventData = SerializeValue(eventData);
+        var serializedEventData = JsonSerializer.Serialize(eventData, SerializerOptions);
+        eventName = GetEventName(eventData.GetType());
+        return serializedEventData;
+    }
+
+    public JsonElement SerializeToJsonElement(object eventData, out string eventName)
+    {
+        var serializedEventData = JsonSerializer.SerializeToElement(eventData, SerializerOptions);
         eventName = GetEventName(eventData.GetType());
         return serializedEventData;
     }
@@ -43,11 +50,6 @@ public sealed class JsonEventSerializer : IEventSerializer
     {
         var ed = DeserializeEventData(eventName, serializedEventData);
         return ed;
-    }
-
-    private string SerializeValue(object value)
-    {
-        return JsonSerializer.Serialize(value, SerializerOptions);
     }
 
     private object DeserializeEventData(string eventName, string jsonSerializedEventData)

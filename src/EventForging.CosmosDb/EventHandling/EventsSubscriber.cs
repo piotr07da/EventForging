@@ -1,5 +1,7 @@
-﻿using EventForging.Diagnostics.Logging;
+﻿using EventForging.CosmosDb.Serialization;
+using EventForging.Diagnostics.Logging;
 using EventForging.EventsHandling;
+using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 
@@ -10,9 +12,11 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     private readonly ICosmosDbProvider _cosmosDbProvider;
     private readonly IEventDispatcher _eventDispatcher;
     private readonly ICosmosDbEventForgingConfiguration _configuration;
+    private readonly IEventSerializer _eventSerializer;
+    private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
     private readonly ILogger _logger;
 
-    private readonly GroupsMerger<MasterDocument, ReceivedEvent> _changesMerger = CreateChangesMerger();
+    private readonly GroupsMerger<ContainerItem, ReceivedEvent> _changesMerger;
 
     private readonly IList<ChangeFeedProcessor> _changeFeedProcessors = new List<ChangeFeedProcessor>();
     private bool _stopRequested;
@@ -22,12 +26,18 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         ICosmosDbProvider cosmosDbProvider,
         IEventDispatcher eventDispatcher,
         ICosmosDbEventForgingConfiguration configuration,
+        IEventSerializer eventSerializer,
+        IJsonSerializerOptionsProvider serializerOptionsProvider,
         IEventForgingLoggerProvider loggerProvider)
     {
         _cosmosDbProvider = cosmosDbProvider ?? throw new ArgumentNullException(nameof(cosmosDbProvider));
         _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
+        _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
         _logger = loggerProvider.Logger;
+
+        _changesMerger = CreateChangesMerger();
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -37,9 +47,9 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             var container = _cosmosDbProvider.GetContainer(subscription.DatabaseName, subscription.EventsContainerName);
 
             var changeFeedProcessorBuilder = container
-                .GetChangeFeedProcessorBuilder<MasterDocument>(
+                .GetChangeFeedProcessorBuilder(
                     subscription.ChangeFeedName,
-                    (_, changes, ct) => HandleChangesAsync(subscription.SubscriptionName, changes, ct))
+                    (context, changes, cancellationToken) => HandleChangesAsync(subscription.SubscriptionName, context, changes, cancellationToken))
                 .WithInstanceName(Environment.MachineName)
                 .WithLeaseContainer(_cosmosDbProvider.GetLeaseContainer(subscription.DatabaseName));
 
@@ -72,11 +82,17 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         }
     }
 
-    private async Task HandleChangesAsync(string subscriptionName, IReadOnlyCollection<MasterDocument> changes, CancellationToken cancellationToken)
+    private async Task HandleChangesAsync(string subscriptionName, ChangeFeedProcessorContext context, Stream changes, CancellationToken cancellationToken)
     {
         const string stopRequestedExceptionMessage = "Stop has been requested. Cannot finish processing for received changes. Batch of changes will not be confirmed and will be redelivered.";
 
-        var batches = _changesMerger.Merge(changes);
+        var containerItems = new List<ContainerItem>();
+        await foreach (var containerItem in changes.DeserializeStreamAsync(_serializerOptionsProvider.Get(), cancellationToken))
+        {
+            containerItems.Add(containerItem);
+        }
+
+        var batches = _changesMerger.Merge(containerItems);
         foreach (var batch in batches)
         {
             if (batch.Count == 0)
@@ -97,29 +113,29 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         }
     }
 
-    private static GroupsMerger<MasterDocument, ReceivedEvent> CreateChangesMerger()
+    private GroupsMerger<ContainerItem, ReceivedEvent> CreateChangesMerger()
     {
-        return new GroupsMerger<MasterDocument, ReceivedEvent>(md => md.StreamId, ExtractReceivedEvents);
+        return new GroupsMerger<ContainerItem, ReceivedEvent>(ci => ci.GetStringValue("streamId"), ExtractReceivedEvents);
     }
 
-    private static IEnumerable<ReceivedEvent> ExtractReceivedEvents(MasterDocument masterDocument)
+    private IEnumerable<ReceivedEvent> ExtractReceivedEvents(ContainerItem containerItem)
     {
-        if (masterDocument.DocumentType == DocumentType.Event)
+        if (containerItem.TryHandleAs<EventDocument>(DocumentType.Event.ToString(), out var eventDocument))
         {
-            var eventDocument = masterDocument.EventDocument!;
             var md = eventDocument.Metadata;
-            var ei = new EventInfo(masterDocument.StreamId, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType!, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
-            yield return new ReceivedEvent(eventDocument.Data!, ei);
+            var ei = new EventInfo(eventDocument.StreamId!, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+            var deserializedEventData = _eventSerializer.DeserializeFromString(eventDocument.EventType, eventDocument.Data!.ToString()!);
+            yield return new ReceivedEvent(deserializedEventData, ei);
         }
-        else if (masterDocument.DocumentType == DocumentType.EventsPacket)
+        else if (containerItem.TryHandleAs<EventsPacketDocument>(DocumentType.EventsPacket.ToString(), out var eventsPacketDocument))
         {
-            var eventsPacketDocument = masterDocument.EventsPacketDocument!;
             var md = eventsPacketDocument.Metadata;
 
             foreach (var e in eventsPacketDocument.Events)
             {
-                var ei = new EventInfo(masterDocument.StreamId, e.EventId, e.EventNumber, e.EventType!, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
-                yield return new ReceivedEvent(e.Data!, ei);
+                var ei = new EventInfo(eventsPacketDocument.StreamId!, e.EventId, e.EventNumber, e.EventType, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+                var deserializedEventData = _eventSerializer.DeserializeFromString(e.EventType, e.Data!.ToString()!);
+                yield return new ReceivedEvent(deserializedEventData, ei);
             }
         }
     }
