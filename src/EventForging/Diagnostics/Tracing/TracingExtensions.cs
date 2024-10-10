@@ -63,39 +63,6 @@ internal static class TracingExtensions
         return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositorySave, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
     }
 
-    internal static Activity? StartEventDispatcherDispatchActivity(this ActivitySource activitySource, string subscriptionName, ReceivedEventsBatch receivedEventsBatch)
-    {
-        var parentActivity = Activity.Current;
-        Activity? activity;
-        if (parentActivity is not null)
-        {
-            // Since an IEventDispatcher instance can be reused inside an event handler, we need to detect such nesting and avoid creating new activities.
-            // While nesting behavior could potentially be a useful and expected feature, for now, let's keep it simple and avoid cluttered tracing.
-            if (parentActivity.DisplayName.StartsWith(TracingActivityNames.EventDispatcherDispatch))
-            {
-                return null;
-            }
-
-            // ReSharper disable once ExplicitCallerInfoArgument
-            activity = activitySource.StartActivity(TracingActivityNames.EventDispatcherDispatch, ActivityKind.Consumer);
-        }
-        else
-        {
-            var parentActivityContext = GetParentActivityContext(receivedEventsBatch);
-            activity = activitySource.StartActivity(TracingActivityNames.EventDispatcherDispatch, ActivityKind.Consumer, parentActivityContext);
-        }
-
-        if (activity is null)
-        {
-            return null;
-        }
-
-        activity.SetTag(TracingAttributeNames.SubscriptionName, subscriptionName);
-        activity.SetTag(TracingAttributeNames.EventsBatchSize, receivedEventsBatch.Count.ToString());
-
-        return activity;
-    }
-
     private static ActivityContext GetParentActivityContext(ReceivedEventsBatch receivedEventsBatch)
     {
         if (receivedEventsBatch.Count > 0)

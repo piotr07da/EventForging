@@ -1,6 +1,4 @@
-﻿using EventForging.CosmosDb.Diagnostics.Tracing;
-using EventForging.Diagnostics.Logging;
-using EventForging.Diagnostics.Tracing;
+﻿using EventForging.Diagnostics.Logging;
 using EventForging.EventsHandling;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
@@ -19,6 +17,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     private readonly IList<ChangeFeedProcessor> _changeFeedProcessors = new List<ChangeFeedProcessor>();
     private bool _stopRequested;
 
+    // ReSharper disable once ConvertToPrimaryConstructor
     public EventsSubscriber(
         ICosmosDbProvider cosmosDbProvider,
         IEventDispatcher eventDispatcher,
@@ -86,21 +85,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             }
 
             var receivedEventsBatch = new ReceivedEventsBatch(batch);
-
-            var activity = ActivitySourceProvider.ActivitySource.StartEventsSubscriberHandleChangesActivity(subscriptionName, receivedEventsBatch);
-            try
-            {
-                await _eventDispatcher.DispatchAsync(subscriptionName, receivedEventsBatch, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                activity?.RecordException(ex);
-                throw;
-            }
-            finally
-            {
-                activity?.Complete();
-            }
+            await _eventDispatcher.DispatchAsync(subscriptionName, receivedEventsBatch, cancellationToken);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -123,7 +108,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         {
             var eventDocument = masterDocument.EventDocument!;
             var md = eventDocument.Metadata;
-            var ei = new EventInfo(masterDocument.StreamId, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+            var ei = new EventInfo(masterDocument.StreamId, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType!, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
             yield return new ReceivedEvent(eventDocument.Data!, ei);
         }
         else if (masterDocument.DocumentType == DocumentType.EventsPacket)
@@ -133,7 +118,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
             foreach (var e in eventsPacketDocument.Events)
             {
-                var ei = new EventInfo(masterDocument.StreamId, e.EventId, e.EventNumber, e.EventType!, md!.ConversationId, md!.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+                var ei = new EventInfo(masterDocument.StreamId, e.EventId, e.EventNumber, e.EventType!, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
                 yield return new ReceivedEvent(e.Data!, ei);
             }
         }

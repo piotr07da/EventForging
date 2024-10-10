@@ -1,10 +1,6 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
-using EventForging.Diagnostics.Tracing;
 using EventForging.EventsHandling;
-using EventForging.InMemory.Diagnostics.Tracing;
 using Microsoft.Extensions.Logging;
-using TracingActivityNames = EventForging.InMemory.Diagnostics.Tracing.TracingActivityNames;
 
 namespace EventForging.InMemory.EventHandling;
 
@@ -40,8 +36,6 @@ internal sealed class Subscription
                 var succeeded = false;
                 while (!succeeded)
                 {
-                    // ReSharper disable once ExplicitCallerInfoArgument
-                    var activity = ActivitySourceProvider.ActivitySource.StartActivity(ActivityKind.Consumer, entry.EventInfo.CustomProperties.RestoreActivityContext(), name: TracingActivityNames.SubscriptionReceiveEvent);
                     try
                     {
                         await _eventDispatcher.DispatchAsync(_name, entry.EventData, entry.EventInfo, _cancellationTokenSource.Token);
@@ -49,13 +43,8 @@ internal sealed class Subscription
                     }
                     catch (Exception ex)
                     {
-                        activity?.RecordException(ex);
                         await Task.Delay(TimeSpan.FromMilliseconds(500), _cancellationTokenSource.Token);
                         _logger.LogError(ex, ex.Message);
-                    }
-                    finally
-                    {
-                        activity?.Complete();
                     }
                 }
             }

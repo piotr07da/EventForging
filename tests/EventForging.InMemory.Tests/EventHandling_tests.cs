@@ -3,7 +3,6 @@
 using System.Diagnostics;
 using EventForging.DatabaseIntegrationTests.Common;
 using EventForging.Diagnostics;
-using EventForging.Diagnostics.Tracing;
 using EventForging.InMemory.Diagnostics;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -72,25 +71,11 @@ public sealed class EventHandling_tests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(1, true)]
-    [InlineData(1000, false)]
-    public async Task when_aggregate_saved_then_events_handled(int amountOfCounterEvents, bool checkTracingContinuity)
+    [InlineData(1)]
+    [InlineData(1000)]
+    public async Task when_aggregate_saved_then_events_handled(int amountOfCounterEvents)
     {
         await _fixture.when_aggregate_saved_then_events_handled(TimeSpan.FromSeconds(5), amountOfCounterEvents);
-
-        if (checkTracingContinuity)
-        {
-            Assert.All(_tracing.Where(a => a.OperationName == TracingActivityNames.EventDispatcherDispatch), a =>
-            {
-                Assert.NotNull(a.ParentId);
-                Assert.NotNull(a.Parent);
-            });
-            Assert.All(_tracing.Where(a => a.OperationName == Diagnostics.Tracing.TracingActivityNames.SubscriptionReceiveEvent), a =>
-            {
-                Assert.NotNull(a.ParentId);
-                Assert.Null(a.Parent);
-            });
-        }
     }
 
     [Fact]
