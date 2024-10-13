@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using EventForging.EventsHandling;
 
 namespace EventForging.Diagnostics.Tracing;
 
@@ -61,16 +60,5 @@ internal static class TracingExtensions
     internal static Activity? EnrichRepositorySaveActivityWithAggregateVersion(this Activity? activity, AggregateVersion aggregateVersion)
     {
         return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositorySave, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
-    }
-
-    private static ActivityContext GetParentActivityContext(ReceivedEventsBatch receivedEventsBatch)
-    {
-        if (receivedEventsBatch.Count > 0)
-        {
-            var firstEvent = receivedEventsBatch.First();
-            return firstEvent.EventInfo.CustomProperties.RestoreActivityContext();
-        }
-
-        return default;
     }
 }

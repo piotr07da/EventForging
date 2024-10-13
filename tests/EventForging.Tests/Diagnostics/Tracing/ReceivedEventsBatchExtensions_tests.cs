@@ -10,7 +10,7 @@ public class ReceivedEventsBatchExtensions_tests
 {
     private const string StreamId = "streamId1";
     private const string EventType = "EventType1";
-    private const string NameForRestoredActivities = "RestoredActivityName";
+    private const string NameSuffixForIterationActivities = "Test Iteration";
 
     private static readonly ActivitySource _testActivitySource = new("EventForging.Tests", "1.0.0");
     private readonly ICollection<Activity> _tracing;
@@ -40,10 +40,10 @@ public class ReceivedEventsBatchExtensions_tests
         var batch = new ReceivedEventsBatch(receivedEvents);
 
         // Act
-        await batch.IterateWithTracingRestoreAsync(NameForRestoredActivities, e => Task.CompletedTask);
+        await batch.IterateWithTracingRestoreAsync(NameSuffixForIterationActivities, e => Task.CompletedTask);
 
         // Assert
-        Assert.Single(_tracing.Where(a => a.DisplayName == NameForRestoredActivities));
+        Assert.Single(_tracing.Where(a => a.DisplayName == NameSuffixForIterationActivities));
     }
 
     [Fact]
@@ -64,10 +64,10 @@ public class ReceivedEventsBatchExtensions_tests
         var batch = new ReceivedEventsBatch(receivedEvents);
 
         // Act
-        await batch.IterateWithTracingRestoreAsync(NameForRestoredActivities, e => Task.CompletedTask);
+        await batch.IterateWithTracingRestoreAsync(NameSuffixForIterationActivities, e => Task.CompletedTask);
 
         // Assert
-        Assert.Equal(expectedNumberOfRestoredActivities, _tracing.Count(a => a.DisplayName == NameForRestoredActivities));
+        Assert.Equal(expectedNumberOfRestoredActivities, _tracing.Count(a => a.DisplayName == NameSuffixForIterationActivities));
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class ReceivedEventsBatchExtensions_tests
         // Act
         try
         {
-            await batch.IterateWithTracingRestoreAsync(NameForRestoredActivities, e => throw new InvalidOperationException("test exception 123"));
+            await batch.IterateWithTracingRestoreAsync(NameSuffixForIterationActivities, e => throw new InvalidOperationException("test exception 123"));
         }
         catch
         {
@@ -94,7 +94,7 @@ public class ReceivedEventsBatchExtensions_tests
         }
 
         // Assert
-        var startedActivity = Assert.Single(_tracing.Where(a => a.DisplayName == NameForRestoredActivities));
+        var startedActivity = Assert.Single(_tracing.Where(a => a.DisplayName == NameSuffixForIterationActivities));
         Assert.Equal(ActivityStatusCode.Error, startedActivity.Status);
         Assert.Equal("test exception 123", startedActivity.StatusDescription);
     }
@@ -111,7 +111,7 @@ public class ReceivedEventsBatchExtensions_tests
         var batch = new ReceivedEventsBatch(receivedEvents);
 
         // Act
-        await batch.IterateWithTracingRestoreAsync(NameForRestoredActivities, e => Task.CompletedTask);
+        await batch.IterateWithTracingRestoreAsync(NameSuffixForIterationActivities, e => Task.CompletedTask);
 
         // Assert
         Assert.Empty(_tracing);

@@ -4,6 +4,7 @@ public static class TracingActivityNames
 {
     public const string RepositoryGet = "EF Repository Get";
     public const string RepositorySave = "EF Repository Save";
+    public const string ReceivedEventsIteratedPrefix = "EF Received Events Iterated ";
 }
 
 public static class TracingAttributeNames

@@ -1,6 +1,6 @@
 name: EventForging
 env:
-  EVENT_FORGING_VERSION: 1.12.1
+  EVENT_FORGING_VERSION: 1.12.2
 on:
   workflow_dispatch:
   push:

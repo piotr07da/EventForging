@@ -5,7 +5,12 @@ namespace EventForging.Diagnostics.Tracing;
 
 public static class ReceivedEventsBatchExtensions
 {
-    public static async Task IterateWithTracingRestoreAsync(this ReceivedEventsBatch batch, string activityName, Func<ReceivedEvent, Task> onIterateAsync)
+    public static async Task IterateWithTracingRestoreAsync(this ReceivedEventsBatch batch, string activityNameSuffix, Func<ReceivedEvent, Task> onIterateAsync)
+    {
+        await batch.IterateWithTracingRestoreAsync(ActivitySourceProvider.ActivitySource, activityNameSuffix, onIterateAsync);
+    }
+
+    public static async Task IterateWithTracingRestoreAsync(this ReceivedEventsBatch batch, ActivitySource activitySource, string activityName, Func<ReceivedEvent, Task> onIterateAsync)
     {
         var lastActivityId = null as string;
         var lastActivity = null as Activity;
@@ -18,7 +23,7 @@ public static class ReceivedEventsBatchExtensions
                 lastActivityId = activityId;
                 lastActivity?.Complete();
                 var activityContext = receivedEvent.EventInfo.RestoreActivityContext();
-                lastActivity = ActivitySourceProvider.ActivitySource.StartActivity(activityName, ActivityKind.Consumer, activityContext);
+                lastActivity = activitySource.StartActivity(activityName, ActivityKind.Consumer, activityContext);
             }
 
             var catchedException = null as Exception;
