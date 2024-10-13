@@ -5,7 +5,7 @@ namespace EventForging.Diagnostics.Tracing;
 
 public static class EventInfoExtensions
 {
-    public static ActivityContext RestoreActivityContext(EventInfo eventInfo)
+    public static ActivityContext RestoreActivityContext(this EventInfo eventInfo)
     {
         return eventInfo.CustomProperties.RestoreActivityContext();
     }
