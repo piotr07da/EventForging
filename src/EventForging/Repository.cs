@@ -122,11 +122,14 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     private async Task InternalSaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, Activity? activity, CancellationToken cancellationToken)
     {
+        var aggregateMetadata = aggregate.GetAggregateMetadata();
+        var retrievedVersion = aggregateMetadata.RetrievedVersion;
+
         customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
         customProperties ??= new Dictionary<string, string>();
         customProperties.StoreCurrentActivityId(); // Can (and should) be later overwritten inside any database-specific implementation. It is here only to ensure that if any database-specific implementation does not store ActivityId then at least it is stored at this level.
 
-        var saveInterceptorContext = new RepositorySaveInterceptorContext<TAggregate>(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties);
+        var saveInterceptorContext = new RepositorySaveInterceptorContext<TAggregate>(aggregateId, aggregate, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties);
 
         for (var i = 0; i < _genericSaveInterceptors.Length; ++i)
         {
@@ -163,23 +166,20 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         initiatorId = saveInterceptorContext.InitiatorId;
         customProperties = saveInterceptorContext.CustomProperties;
 
-        var aggregateMetadata = aggregate.GetAggregateMetadata();
-        var retrievedAggregateVersion = aggregateMetadata.RetrievedVersion;
+        activity?.EnrichRepositorySaveActivityWithAggregateVersion(retrievedVersion);
 
-        activity?.EnrichRepositorySaveActivityWithAggregateVersion(retrievedAggregateVersion);
-
-        if (expectedVersion.IsNone && retrievedAggregateVersion.AggregateExists)
+        if (expectedVersion.IsNone && retrievedVersion.AggregateExists)
         {
-            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, retrievedAggregateVersion, null);
+            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, retrievedVersion, null);
         }
 
-        if (expectedVersion.IsDefined && (retrievedAggregateVersion.AggregateDoesNotExist || expectedVersion != retrievedAggregateVersion))
+        if (expectedVersion.IsDefined && (retrievedVersion.AggregateDoesNotExist || expectedVersion != retrievedVersion))
         {
-            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, retrievedAggregateVersion, null);
+            throw new EventForgingUnexpectedVersionException(aggregateId, null, expectedVersion, retrievedVersion, null);
         }
 
         var newEvents = aggregate.Events.Get().ToArray();
 
-        await _database.WriteAsync<TAggregate>(aggregateId, newEvents, retrievedAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
+        await _database.WriteAsync<TAggregate>(aggregateId, newEvents, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
     }
 }
