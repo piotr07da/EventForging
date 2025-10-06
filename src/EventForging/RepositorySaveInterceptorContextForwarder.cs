@@ -5,7 +5,7 @@ internal sealed class RepositorySaveInterceptorContextForwarder<TAggregate> : IR
     public bool Forwarded { get; private set; }
     public RepositorySaveInterceptorContext<TAggregate>? ReceivedContext { get; private set; }
 
-    public async Task ForwardAsync(RepositorySaveInterceptorContext<TAggregate> context)
+    public async Task ForwardAsync(RepositorySaveInterceptorContext<TAggregate> context, CancellationToken cancellationToken)
     {
         Forwarded = true;
         ReceivedContext = context;

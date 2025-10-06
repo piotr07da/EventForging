@@ -4,6 +4,6 @@ public sealed class GenericRepositorySaveInterceptor : IRepositorySaveIntercepto
 {
     public async Task SaveAsync<TAggregate>(RepositorySaveInterceptorContext<TAggregate> context, IRepositorySaveInterceptorContextForwarder<TAggregate> forwarder, CancellationToken cancellationToken)
     {
-        await forwarder.ForwardAsync(context);
+        await forwarder.ForwardAsync(context, cancellationToken);
     }
 }
