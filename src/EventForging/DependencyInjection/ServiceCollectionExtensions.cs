@@ -1,4 +1,6 @@
-﻿using EventForging.Diagnostics.Logging;
+﻿using EventForging.Configuration;
+using EventForging.DependencyInjection;
+using EventForging.Diagnostics.Logging;
 using EventForging.EventsHandling;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,7 +17,9 @@ public static class ServiceCollectionExtensions
             throw new EventForgingConfigurationException("EventForging has already been added.");
         }
 
-        var configuration = new EventForgingConfiguration();
+        var configuration = new EventForgingConfiguration(
+            new EventForgingSerializationConfiguration(),
+            new EventForgingRepositoryInterceptorsConfiguration(services));
         var registrationConfiguration = new EventForgingRegistrationConfiguration(services, configuration);
         configurator(registrationConfiguration);
 

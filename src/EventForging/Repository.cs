@@ -7,10 +7,17 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
     where TAggregate : class, IEventForged
 {
     private readonly IEventDatabase _database;
+    private readonly IRepositorySaveInterceptor[] _genericSaveInterceptors;
+    private readonly IRepositorySaveInterceptor<TAggregate>[] _specificSaveInterceptors;
 
-    public Repository(IEventDatabase database)
+    public Repository(
+        IEventDatabase database,
+        IEnumerable<IRepositorySaveInterceptor> genericSaveInterceptors,
+        IEnumerable<IRepositorySaveInterceptor<TAggregate>> specificSaveInterceptors)
     {
         _database = database ?? throw new ArgumentNullException(nameof(database));
+        _genericSaveInterceptors = genericSaveInterceptors?.ToArray() ?? Array.Empty<IRepositorySaveInterceptor>();
+        _specificSaveInterceptors = specificSaveInterceptors?.ToArray() ?? Array.Empty<IRepositorySaveInterceptor<TAggregate>>();
     }
 
     public async Task<TAggregate> GetAsync(Guid aggregateId, CancellationToken cancellationToken = default)
@@ -113,8 +120,45 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         return aggregate;
     }
 
-    private async Task InternalSaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, Activity? activity, CancellationToken cancellationToken = default)
+    private async Task InternalSaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, Activity? activity, CancellationToken cancellationToken)
     {
+        var saveInterceptorContext = new RepositorySaveInterceptorContext<TAggregate>(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties);
+
+        for (var i = 0; i < _genericSaveInterceptors.Length; ++i)
+        {
+            var forwarder = new RepositorySaveInterceptorContextForwarder<TAggregate>();
+            await _genericSaveInterceptors[i].SaveAsync(saveInterceptorContext, forwarder, cancellationToken).ConfigureAwait(false);
+
+            if (!forwarder.Forwarded)
+            {
+                activity?.EnrichRepositorySaveActivityWithInterceptionPipelineStatus("NOT FORWARDED");
+                return;
+            }
+
+            saveInterceptorContext = forwarder.ReceivedContext ?? throw new EventForgingException("Repository interception pipeline cannot pass null context to the next interception pipe.");
+        }
+
+        for (var i = 0; i < _specificSaveInterceptors.Length; ++i)
+        {
+            var forwarder = new RepositorySaveInterceptorContextForwarder<TAggregate>();
+            await _specificSaveInterceptors[i].SaveAsync(saveInterceptorContext, forwarder, cancellationToken).ConfigureAwait(false);
+
+            if (!forwarder.Forwarded)
+            {
+                activity?.EnrichRepositorySaveActivityWithInterceptionPipelineStatus("NOT FORWARDED");
+                return;
+            }
+
+            saveInterceptorContext = forwarder.ReceivedContext ?? throw new EventForgingException("Repository interception pipeline cannot pass null context to the next interception pipe.");
+        }
+
+        aggregateId = saveInterceptorContext.AggregateId;
+        aggregate = saveInterceptorContext.Aggregate;
+        expectedVersion = saveInterceptorContext.ExpectedVersion;
+        conversationId = saveInterceptorContext.ConversationId;
+        initiatorId = saveInterceptorContext.InitiatorId;
+        customProperties = saveInterceptorContext.CustomProperties;
+
         var aggregateMetadata = aggregate.GetAggregateMetadata();
         var retrievedAggregateVersion = aggregateMetadata.RetrievedVersion;
 

@@ -1,3 +1,5 @@
+using EventForging.Configuration;
+
 namespace EventForging;
 
 internal static class EventForgingStaticConfigurationProvider

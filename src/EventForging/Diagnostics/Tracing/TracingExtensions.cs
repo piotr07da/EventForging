@@ -61,4 +61,9 @@ internal static class TracingExtensions
     {
         return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositorySave, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
     }
+
+    internal static Activity? EnrichRepositorySaveActivityWithInterceptionPipelineStatus(this Activity? activity, string status)
+    {
+        return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositorySave, TracingAttributeNames.SaveInterceptionPipeline, status);
+    }
 }

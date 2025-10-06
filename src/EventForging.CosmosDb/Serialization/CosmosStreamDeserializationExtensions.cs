@@ -8,6 +8,11 @@ internal static class CosmosStreamDeserializationExtensions
 {
     public static async IAsyncEnumerable<ContainerItem> DeserializeStreamAsync(this Stream stream, JsonSerializerOptions deserializationOptions, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        if (stream is null)
+        {
+            throw new EventForgingException("Cannot deserialize cosmos stream to container items. Cosmos stream is null.");
+        }
+
         var streamRootDocument = await JsonNode.ParseAsync(stream, cancellationToken: cancellationToken) ?? throw new InvalidOperationException("Cannot parse response content.");
         foreach (var documentJsonNode in (streamRootDocument["Documents"] ?? throw new InvalidOperationException("Cannot deserialize Documents node from response content.")).AsArray())
         {

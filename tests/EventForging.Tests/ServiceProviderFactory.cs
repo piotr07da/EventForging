@@ -14,6 +14,8 @@ public static class ServiceProviderFactory
             r.ConfigureEventForging(c =>
             {
                 c.IdempotencyEnabled = false;
+                c.RepositoryInterceptors.Register<GenericRepositorySaveInterceptor>();
+                c.RepositoryInterceptors.Register<SpecificRepositorySaveInterceptor, BreweryAggregate>();
             });
 
             r.UseInMemory(imConfigurator =>
