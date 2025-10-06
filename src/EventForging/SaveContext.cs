@@ -9,7 +9,7 @@ namespace EventForging;
 /// <param name="InitiatorId">ID of the message that initiated this save operation.</param>
 /// <param name="CustomProperties">A dictionary of custom properties associated with this save operation. This data will be stored alongside the events in the database as events metadata.</param>
 /// <typeparam name="TAggregate">Type of the aggregate being saved.</typeparam>
-public sealed record RepositorySaveInterceptorContext<TAggregate>(
+public sealed record SaveContext<TAggregate>(
     string AggregateId,
     TAggregate Aggregate,
     AggregateVersion RetrievedVersion,

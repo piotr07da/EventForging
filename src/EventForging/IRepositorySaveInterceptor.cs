@@ -2,10 +2,10 @@ namespace EventForging;
 
 public interface IRepositorySaveInterceptor
 {
-    Task SaveAsync<TAggregate>(RepositorySaveInterceptorContext<TAggregate> context, IRepositorySaveInterceptorContextForwarder<TAggregate> forwarder, CancellationToken cancellationToken);
+    Task SaveAsync<TAggregate>(SaveContext<TAggregate> context, IInvocationForwarder<SaveContext<TAggregate>> next, CancellationToken cancellationToken);
 }
 
 public interface IRepositorySaveInterceptor<TAggregate>
 {
-    Task SaveAsync(RepositorySaveInterceptorContext<TAggregate> context, IRepositorySaveInterceptorContextForwarder<TAggregate> forwarder, CancellationToken cancellationToken);
+    Task SaveAsync(SaveContext<TAggregate> context, IInvocationForwarder<SaveContext<TAggregate>> next, CancellationToken cancellationToken);
 }

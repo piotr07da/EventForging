@@ -2,8 +2,8 @@ namespace EventForging.Tests;
 
 public sealed class GenericRepositorySaveInterceptor : IRepositorySaveInterceptor
 {
-    public async Task SaveAsync<TAggregate>(RepositorySaveInterceptorContext<TAggregate> context, IRepositorySaveInterceptorContextForwarder<TAggregate> forwarder, CancellationToken cancellationToken)
+    public async Task SaveAsync<TAggregate>(SaveContext<TAggregate> context, IInvocationForwarder<SaveContext<TAggregate>> next, CancellationToken cancellationToken)
     {
-        await forwarder.ForwardAsync(context, cancellationToken);
+        await next.ForwardAsync(context, cancellationToken);
     }
 }
