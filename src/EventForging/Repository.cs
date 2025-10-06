@@ -122,6 +122,10 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     private async Task InternalSaveAsync(string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties, Activity? activity, CancellationToken cancellationToken)
     {
+        customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
+        customProperties ??= new Dictionary<string, string>();
+        customProperties.StoreCurrentActivityId(); // Can (and should) be later overwritten inside any database-specific implementation. It is here only to ensure that if any database-specific implementation does not store ActivityId then at least it is stored at this level.
+
         var saveInterceptorContext = new RepositorySaveInterceptorContext<TAggregate>(aggregateId, aggregate, expectedVersion, conversationId, initiatorId, customProperties);
 
         for (var i = 0; i < _genericSaveInterceptors.Length; ++i)
@@ -175,9 +179,6 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         }
 
         var newEvents = aggregate.Events.Get().ToArray();
-        customProperties = customProperties?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // clone
-        customProperties ??= new Dictionary<string, string>();
-        customProperties.StoreCurrentActivityId(); // Can (and should) be later overwritten inside any database-specific implementation. It is here only to ensure that if any database-specific implementation does not store ActivityId then at least it is stored at this level.
 
         await _database.WriteAsync<TAggregate>(aggregateId, newEvents, retrievedAggregateVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken).ConfigureAwait(false);
     }

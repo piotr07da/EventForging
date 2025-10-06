@@ -6,4 +6,4 @@ public sealed record RepositorySaveInterceptorContext<TAggregate>(
     ExpectedVersion ExpectedVersion,
     Guid ConversationId,
     Guid InitiatorId,
-    IDictionary<string, string>? CustomProperties);
+    IDictionary<string, string> CustomProperties);
