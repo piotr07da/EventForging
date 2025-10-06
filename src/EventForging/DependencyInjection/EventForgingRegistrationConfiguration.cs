@@ -40,4 +40,17 @@ internal sealed class EventForgingRegistrationConfiguration : IEventForgingRegis
             }
         }
     }
+
+    public void AddRepositorySaveInterceptor<TInterceptor>()
+        where TInterceptor : class, IRepositorySaveInterceptor
+    {
+        Services.AddSingleton<IRepositorySaveInterceptor, TInterceptor>();
+    }
+
+    public void AddRepositorySaveInterceptor<TInterceptor, TAggregate>()
+        where TInterceptor : class, IRepositorySaveInterceptor<TAggregate>
+        where TAggregate : class
+    {
+        Services.AddSingleton<IRepositorySaveInterceptor<TAggregate>, TInterceptor>();
+    }
 }

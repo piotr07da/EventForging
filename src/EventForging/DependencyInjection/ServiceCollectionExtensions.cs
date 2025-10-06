@@ -1,6 +1,4 @@
-﻿using EventForging.Configuration;
-using EventForging.DependencyInjection;
-using EventForging.Diagnostics.Logging;
+﻿using EventForging.Diagnostics.Logging;
 using EventForging.EventsHandling;
 using EventForging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,18 +15,14 @@ public static class ServiceCollectionExtensions
             throw new EventForgingConfigurationException("EventForging has already been added.");
         }
 
-        var configuration = new EventForgingConfiguration(
-            new EventForgingSerializationConfiguration(),
-            new EventForgingRepositoryInterceptorsConfiguration(services));
+        var configuration = new EventForgingConfiguration(new EventForgingSerializationConfiguration());
         var registrationConfiguration = new EventForgingRegistrationConfiguration(services, configuration);
         configurator(registrationConfiguration);
 
         services.AddSingleton(typeof(IEventForgingConfiguration), configuration);
         services.AddSingleton(typeof(IEventForgingSerializationConfiguration), configuration.Serialization);
-        services.AddTransient(typeof(IRepository<>), typeof(Repository<>));
-
+        services.AddSingleton(typeof(IRepository<>), typeof(Repository<>));
         services.AddSingleton<IEventDispatcher, EventDispatcher>();
-
         services.AddSingleton<IEventForgingLoggerProvider, EventForgingLoggerProvider>();
 
         EventForgingStaticConfigurationProvider.ApplyMethodsRequiredForAllAppliedEvents = configuration.ApplyMethodsRequiredForAllAppliedEvents;
