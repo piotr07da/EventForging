@@ -144,19 +144,6 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
         await Task.CompletedTask;
     }
 
-    public async Task DeleteAsync<TAggregate>(string aggregateId, EventsDeleteMode deleteMode, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(aggregateId))
-        {
-            throw new ArgumentException(nameof(aggregateId));
-        }
-
-        var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
-        _streams.TryRemove(streamId, out _);
-
-        await Task.CompletedTask;
-    }
-
     private void PublishEvents(IReadOnlyCollection<EventEntry> eventEntries)
     {
         foreach (var subscription in _inMemoryConfiguration.EventSubscriptions)

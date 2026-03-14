@@ -1,6 +1,6 @@
 namespace EventForging;
 
-public enum EventsDeleteMode
+public enum EventsDeletionMode
 {
     MarkAsDeleted,
     DeletePermanently,

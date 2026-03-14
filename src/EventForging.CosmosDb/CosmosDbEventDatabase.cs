@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace EventForging.CosmosDb;
 
-internal sealed class CosmosDbEventDatabase : IEventDatabase
+internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventDatabase
 {
     private const int MaxNumberOfUnpackedEventsInTransaction = 99;
 
@@ -142,7 +142,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
     }
 
-    public async Task DeleteAsync<TAggregate>(string aggregateId, EventsDeleteMode deleteMode, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync<TAggregate>(string aggregateId, EventsDeletionMode deletionMode, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(aggregateId))
         {
@@ -152,7 +152,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
         var container = GetContainer<TAggregate>();
 
-        if (deleteMode == EventsDeleteMode.MarkAsDeleted)
+        if (deletionMode == EventsDeletionMode.MarkAsDeleted)
         {
             var headerDocumentIds = await ReadHeaderDocumentIdsAsync(container, streamId, cancellationToken);
             foreach (var headerDocumentId in headerDocumentIds)
@@ -160,7 +160,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
                 await DeleteStreamDocumentPermanentlyAsync(container, streamId, headerDocumentId, cancellationToken);
             }
 
-            var eventDocumentIds = await ReadEventAndPacketDocumentIdsAsync(container, streamId, onlyNotDeleted: true, cancellationToken);
+            var eventDocumentIds = await ReadEventAndPacketDocumentIdsAsync(container, streamId, true, cancellationToken);
             foreach (var eventDocumentId in eventDocumentIds)
             {
                 await MarkStreamDocumentAsDeletedAsync(container, streamId, eventDocumentId, cancellationToken);
@@ -169,9 +169,9 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             return;
         }
 
-        if (deleteMode == EventsDeleteMode.DeletePermanently)
+        if (deletionMode == EventsDeletionMode.DeletePermanently)
         {
-            var streamDocumentIds = await ReadStreamDocumentIdsAsync(container, streamId, includeHeader: true, onlyNotDeleted: false, cancellationToken);
+            var streamDocumentIds = await ReadStreamDocumentIdsAsync(container, streamId, true, false, cancellationToken);
             foreach (var streamDocumentId in streamDocumentIds)
             {
                 await DeleteStreamDocumentPermanentlyAsync(container, streamId, streamDocumentId, cancellationToken);
@@ -180,7 +180,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             return;
         }
 
-        throw new EventForgingException($"Unknown events delete mode: {deleteMode}.");
+        throw new EventForgingException($"Unknown events deletion mode: {deletionMode}.");
     }
 
     private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsAsync<TAggregate>(string aggregateId, Activity? activity, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -468,7 +468,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
     private static async Task<IReadOnlyList<string>> ReadEventAndPacketDocumentIdsAsync(Container container, string streamId, bool onlyNotDeleted, CancellationToken cancellationToken)
     {
-        return await ReadStreamDocumentIdsAsync(container, streamId, includeHeader: false, onlyNotDeleted, cancellationToken);
+        return await ReadStreamDocumentIdsAsync(container, streamId, false, onlyNotDeleted, cancellationToken);
     }
 
     private static async Task<IReadOnlyList<string>> ReadStreamDocumentIdsAsync(Container container, string streamId, bool includeHeader, bool onlyNotDeleted, CancellationToken cancellationToken)
