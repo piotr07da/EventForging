@@ -142,6 +142,47 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         }
     }
 
+    public async Task DeleteAsync<TAggregate>(string aggregateId, EventsDeleteMode deleteMode, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(aggregateId))
+        {
+            throw new ArgumentException(nameof(aggregateId));
+        }
+
+        var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
+        var container = GetContainer<TAggregate>();
+
+        if (deleteMode == EventsDeleteMode.MarkAsDeleted)
+        {
+            var headerDocumentIds = await ReadHeaderDocumentIdsAsync(container, streamId, cancellationToken);
+            foreach (var headerDocumentId in headerDocumentIds)
+            {
+                await DeleteStreamDocumentPermanentlyAsync(container, streamId, headerDocumentId, cancellationToken);
+            }
+
+            var eventDocumentIds = await ReadEventAndPacketDocumentIdsAsync(container, streamId, onlyNotDeleted: true, cancellationToken);
+            foreach (var eventDocumentId in eventDocumentIds)
+            {
+                await MarkStreamDocumentAsDeletedAsync(container, streamId, eventDocumentId, cancellationToken);
+            }
+
+            return;
+        }
+
+        if (deleteMode == EventsDeleteMode.DeletePermanently)
+        {
+            var streamDocumentIds = await ReadStreamDocumentIdsAsync(container, streamId, includeHeader: true, onlyNotDeleted: false, cancellationToken);
+            foreach (var streamDocumentId in streamDocumentIds)
+            {
+                await DeleteStreamDocumentPermanentlyAsync(container, streamId, streamDocumentId, cancellationToken);
+            }
+
+            return;
+        }
+
+        throw new EventForgingException($"Unknown events delete mode: {deleteMode}.");
+    }
+
     private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsAsync<TAggregate>(string aggregateId, Activity? activity, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
@@ -172,6 +213,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         {
             if (item.TryHandleAs<EventDocument>(DocumentType.Event.ToString(), out var eventDocument))
             {
+                if (eventDocument.IsDeleted == true)
+                {
+                    continue;
+                }
+
                 var eventId = Guid.Parse(eventDocument.Id!);
                 var deserializedEventData = DeserializeEventData(eventDocument.StreamId!, eventDocument.Id!, eventId, eventDocument.Data, eventDocument.EventType);
 
@@ -188,6 +234,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
 
             if (item.TryHandleAs<EventsPacketDocument>(DocumentType.EventsPacket.ToString(), out var eventsPacketDocument))
             {
+                if (eventsPacketDocument.IsDeleted == true)
+                {
+                    continue;
+                }
+
                 foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
                 {
                     var deserializeEventData = DeserializeEventData(eventsPacketDocument.StreamId!, eventsPacketDocument.Id!, e.EventId, e.Data, e.EventType);
@@ -383,7 +434,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
         if (initiatorId == Guid.Empty)
             return false;
 
-        var query = new QueryDefinition($"SELECT VALUE COUNT(1) FROM c WHERE c.metadata.initiatorId = @initiatorId AND (c.documentType = '{DocumentType.Event.ToString()}' OR c.documentType = '{DocumentType.EventsPacket.ToString()}')")
+        var query = new QueryDefinition($"SELECT VALUE COUNT(1) FROM c WHERE c.metadata.initiatorId = @initiatorId AND (c.documentType = '{DocumentType.Event}' OR c.documentType = '{DocumentType.EventsPacket}')")
             .WithParameter("@initiatorId", initiatorId.ToString());
         var iterator = GetContainer<TAggregate>().GetItemQueryIterator<int>(query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
 
@@ -408,6 +459,65 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase
             });
 
         return checkResult;
+    }
+
+    private static async Task<IReadOnlyList<string>> ReadHeaderDocumentIdsAsync(Container container, string streamId, CancellationToken cancellationToken)
+    {
+        return await ReadDocumentIdsByConditionAsync(container, streamId, $"c.documentType = '{DocumentType.Header}'", cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<string>> ReadEventAndPacketDocumentIdsAsync(Container container, string streamId, bool onlyNotDeleted, CancellationToken cancellationToken)
+    {
+        return await ReadStreamDocumentIdsAsync(container, streamId, includeHeader: false, onlyNotDeleted, cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<string>> ReadStreamDocumentIdsAsync(Container container, string streamId, bool includeHeader, bool onlyNotDeleted, CancellationToken cancellationToken)
+    {
+        var notDeletedCondition = onlyNotDeleted ? " AND (NOT IS_DEFINED(c.isDeleted) OR c.isDeleted != true)" : string.Empty;
+        var typeCondition = includeHeader
+            ? $"(c.documentType = '{DocumentType.Header}' OR c.documentType = '{DocumentType.Event}' OR c.documentType = '{DocumentType.EventsPacket}')"
+            : $"(c.documentType = '{DocumentType.Event}' OR c.documentType = '{DocumentType.EventsPacket}')";
+        return await ReadDocumentIdsByConditionAsync(container, streamId, $"{typeCondition}{notDeletedCondition}", cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<string>> ReadDocumentIdsByConditionAsync(Container container, string streamId, string whereCondition, CancellationToken cancellationToken)
+    {
+        var query = new QueryDefinition($"SELECT VALUE c.id FROM c WHERE {whereCondition}");
+        var queryRequestOptions = new QueryRequestOptions
+        {
+            PartitionKey = new PartitionKey(streamId),
+            MaxItemCount = -1,
+        };
+        var iterator = container.GetItemQueryIterator<string>(query, requestOptions: queryRequestOptions);
+
+        var documentIds = new List<string>();
+        while (iterator.HasMoreResults)
+        {
+            var page = await iterator.ReadNextAsync(cancellationToken);
+            foreach (var documentId in page)
+            {
+                if (!string.IsNullOrWhiteSpace(documentId))
+                {
+                    documentIds.Add(documentId);
+                }
+            }
+        }
+
+        return documentIds;
+    }
+
+    private static async Task MarkStreamDocumentAsDeletedAsync(Container container, string streamId, string documentId, CancellationToken cancellationToken)
+    {
+        await container.PatchItemAsync<object>(
+            documentId,
+            new PartitionKey(streamId),
+            new[] { PatchOperation.Set("/isDeleted", true), },
+            cancellationToken: cancellationToken);
+    }
+
+    private static async Task DeleteStreamDocumentPermanentlyAsync(Container container, string streamId, string documentId, CancellationToken cancellationToken)
+    {
+        await container.DeleteItemAsync<object>(documentId, new PartitionKey(streamId), cancellationToken: cancellationToken);
     }
 
     private Container GetContainer<TAggregate>()

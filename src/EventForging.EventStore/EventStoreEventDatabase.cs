@@ -110,4 +110,9 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
             throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, retrievedVersion, e.ActualStreamRevision.ToInt64(), e);
         }
     }
+
+    public Task DeleteAsync<TAggregate>(string aggregateId, EventsDeleteMode deleteMode, CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException($"Delete mode '{deleteMode}' is not implemented for {nameof(EventStoreEventDatabase)}.");
+    }
 }

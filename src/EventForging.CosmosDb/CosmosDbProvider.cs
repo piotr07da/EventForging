@@ -1,4 +1,4 @@
-﻿using EventForging.CosmosDb.Serialization;
+using EventForging.CosmosDb.Serialization;
 using EventForging.Diagnostics.Logging;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;

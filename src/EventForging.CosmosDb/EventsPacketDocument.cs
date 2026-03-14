@@ -28,6 +28,8 @@ internal sealed class EventsPacketDocument : IDocument
 
     public DocumentType DocumentType { get; set; }
 
+    public bool? IsDeleted { get; set; }
+
     [JsonPropertyName("_etag")]
     public string? ETag { get; set; }
 
@@ -47,6 +49,7 @@ internal sealed class EventsPacketDocument : IDocument
             StreamId = StreamId,
             Id = Id,
             DocumentType = DocumentType,
+            IsDeleted = IsDeleted,
             EventNumber = EventNumber,
             Events = Events.Select(e => e.Clone()).ToArray(),
             Metadata = Metadata,

@@ -23,6 +23,8 @@ internal sealed class HeaderDocument : IDocument
 
     public DocumentType DocumentType { get; set; }
 
+    public bool? IsDeleted { get; set; }
+
     [JsonPropertyName("_etag")]
     public string? ETag { get; set; }
 

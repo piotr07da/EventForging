@@ -27,6 +27,8 @@ internal sealed class EventDocument : IDocument
 
     public DocumentType DocumentType { get; set; }
 
+    public bool? IsDeleted { get; set; }
+
     [JsonPropertyName("_etag")]
     public string? ETag { get; set; }
 
@@ -48,6 +50,7 @@ internal sealed class EventDocument : IDocument
             StreamId = StreamId,
             Id = Id,
             DocumentType = DocumentType,
+            IsDeleted = IsDeleted,
             EventNumber = EventNumber,
             EventType = EventType,
             Data = Data,

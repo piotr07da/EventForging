@@ -122,6 +122,11 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     {
         if (containerItem.TryHandleAs<EventDocument>(DocumentType.Event.ToString(), out var eventDocument))
         {
+            if (eventDocument.IsDeleted == true)
+            {
+                yield break;
+            }
+
             var md = eventDocument.Metadata;
             var ei = new EventInfo(eventDocument.StreamId!, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
             var deserializedEventData = _eventSerializer.DeserializeFromString(eventDocument.EventType, eventDocument.Data!.ToString()!);
@@ -129,6 +134,11 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         }
         else if (containerItem.TryHandleAs<EventsPacketDocument>(DocumentType.EventsPacket.ToString(), out var eventsPacketDocument))
         {
+            if (eventsPacketDocument.IsDeleted == true)
+            {
+                yield break;
+            }
+
             var md = eventsPacketDocument.Metadata;
 
             foreach (var e in eventsPacketDocument.Events)
