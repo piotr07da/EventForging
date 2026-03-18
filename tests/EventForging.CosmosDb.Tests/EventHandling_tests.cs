@@ -13,8 +13,6 @@ namespace EventForging.CosmosDb.Tests;
 [Trait("Category", "Integration")]
 public sealed class EventHandling_tests : IAsyncLifetime
 {
-    private const string ConnectionString = "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
-
     private const string DatabaseName = "TestModule_EventHandling_tests";
     private const string EventsContainerName = "TestModule-Events";
     private const string SubscriptionName = "TestSubscription";
@@ -41,8 +39,10 @@ public sealed class EventHandling_tests : IAsyncLifetime
                     });
                     r.UseCosmosDb(cc =>
                     {
+                        cc.CreateDatabasesAndContainersIfNotExist = true;
+
                         cc.IgnoreServerCertificateValidation = true;
-                        cc.ConnectionString = ConnectionString;
+                        cc.ConnectionString = ConnectionInfo.ConnectionString;
 
                         cc.EventPacking = EventPackingMode.UniformDistributionFilling;
 
@@ -97,7 +97,7 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
     private static CosmosClient CreateCosmosClient()
     {
-        return new CosmosClient(ConnectionString, new CosmosClientOptions
+        return new CosmosClient(ConnectionInfo.ConnectionString, new CosmosClientOptions
         {
             HttpClientFactory = () => new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true, }),
             ConnectionMode = ConnectionMode.Gateway,

@@ -1,16 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>netstandard2.1;net6.0;net7.0;net8.0;</TargetFrameworks>
+        <TargetFrameworks>netstandard2.0;netstandard2.1;net8.0;net10.0</TargetFrameworks>
         <Description>MongoDb implementation of EventForging; $(Description)</Description>
         <PackageTags>$(PackageTags); mongodb;</PackageTags>
     </PropertyGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'netstandard2.1'">
+        <PackageReference Include="System.Text.Json" Version="8.0.6"/>
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="7.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1"/>
         <PackageReference Include="MongoDB.Driver" Version="2.19.1"/>
-        <PackageReference Include="System.Text.Json" Version="8.0.5"/>
     </ItemGroup>
 
     <ItemGroup>

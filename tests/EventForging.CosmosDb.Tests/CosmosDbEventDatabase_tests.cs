@@ -13,7 +13,6 @@ namespace EventForging.CosmosDb.Tests;
 [Trait("Category", "Integration")]
 public class CosmosDbEventDatabase_tests : IAsyncLifetime
 {
-    private const string ConnectionString = "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
     private const string DatabaseName = "TestModule_CosmosDbEventDatabase_tests";
     private const string ContainerName = "TestModule-Events";
 
@@ -177,7 +176,7 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
 
     private static CosmosClient CreateCosmosClient()
     {
-        return new CosmosClient(ConnectionString, new CosmosClientOptions
+        return new CosmosClient(ConnectionInfo.ConnectionString, new CosmosClientOptions
         {
             HttpClientFactory = () => new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true, }),
             ConnectionMode = ConnectionMode.Gateway,
@@ -198,8 +197,9 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
                     });
                     r.UseCosmosDb(cc =>
                     {
+                        cc.CreateDatabasesAndContainersIfNotExist = true;
                         cc.IgnoreServerCertificateValidation = true;
-                        cc.ConnectionString = ConnectionString;
+                        cc.ConnectionString = ConnectionInfo.ConnectionString;
                         cc.EventPacking = eventPacking;
                         cc.AddAggregateLocations(DatabaseName, ContainerName, assembly);
                         cc.SetStreamIdFactory((t, aId) => $"tests-{t.Name}-{aId}");
