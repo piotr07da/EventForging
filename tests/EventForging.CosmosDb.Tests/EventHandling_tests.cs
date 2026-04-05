@@ -46,10 +46,11 @@ public sealed class EventHandling_tests : IAsyncLifetime
 
                         cc.EventPacking = EventPackingMode.UniformDistributionFilling;
 
-                        cc.AddAggregateLocations(DatabaseName, EventsContainerName, assembly);
-
-                        cc.AddEventsSubscription(SubscriptionName, DatabaseName, EventsContainerName, ChangeFeedName, null);
-                        cc.AddEventsSubscription(FailingSubscriptionName, DatabaseName, EventsContainerName, FailingChangeFeedName, null);
+                        cc.AddEventsContainerForAggregates(DatabaseName, EventsContainerName, assembly, s =>
+                        {
+                            s.AddEventsSubscription(SubscriptionName, ChangeFeedName, null, TimeSpan.FromSeconds(1));
+                            s.AddEventsSubscription(FailingSubscriptionName, FailingChangeFeedName, null);
+                        });
                     });
                     r.AddEventHandlers(assembly);
                 });

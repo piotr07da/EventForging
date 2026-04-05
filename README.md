@@ -329,6 +329,21 @@ c.AddAggregateLocations("DatabaseName", "EventsContainerName", assembly, t => tr
 c.AddAggregateLocations("DatabaseName", "EventsContainerName", typeof(Aggregate1));
 ```
 
+Aggregate locations and subscriptions can also be configured together:
+
+```csharp
+c.AddEventsContainerForAggregate("DatabaseName", "EventsContainerName", typeof(Aggregate1), s =>
+{
+    s.AddEventsSubscription("TestSubscriptionName", "changeFeedName_1", null);
+    s.AddEventsSubscription("TestSubscriptionName_2", "changeFeedName_2", DateTime.UtcNow, TimeSpan.FromSeconds(2));
+});
+
+c.AddEventsContainerForAggregates("DatabaseName", "EventsContainerName", assembly, s =>
+{
+    s.AddEventsSubscription("TestSubscriptionName", "changeFeedName_1", null);
+});
+```
+
 #### Event handling
 
 To subscribe to event streams, subscriptions must be added.
@@ -336,14 +351,17 @@ All events from the specified events container and provided by specified change 
 implementations of `IEventHandler<TEvent>` or to the implementations of `IAnyEventHandler`.
 This feature is based on the change feed mechanism of Cosmos DB, please see
 the [Cosmos DB documentation](https://learn.microsoft.com/en-us/azure/cosmos-db/introduction).
-If the spefified database and container, as well as change feed do not exist, they will be created. The last parameter
+If the spefified database and container, as well as change feed do not exist, they will be created. The fifth parameter
 specifies
 from which point in time the change feed will be initialized (if it doesn't exist).
+An optional poll interval can also be configured per subscription to define how long the processor waits before checking
+for more changes when no changes were found.
 For more details, please see [Event Handling](#event-handling) section.
 
 ```csharp
 c.AddEventsSubscription("TestSubscriptionName", "DatabaseName", "EventsContainerName_1", "changeFeedName_1", null);
 c.AddEventsSubscription("TestSubscriptionName", "DatabaseName", "EventsContainerName_2", "changeFeedName_2", DateTime.UtcNow);
+c.AddEventsSubscription("TestSubscriptionName", "DatabaseName", "EventsContainerName_3", "changeFeedName_3", null, TimeSpan.FromSeconds(2));
 ```
 
 #### ExpectedVersion.Any

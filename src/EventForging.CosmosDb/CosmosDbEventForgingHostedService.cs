@@ -27,8 +27,8 @@ internal sealed class CosmosDbEventForgingHostedService : IHostedService, IAsync
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _stopRequested = true;
-        await _cosmosDbProvider.DisposeAsync(cancellationToken);
         await _eventsSubscriber.StopAsync(cancellationToken);
+        await _cosmosDbProvider.DisposeAsync(cancellationToken);
     }
 
     public async ValueTask DisposeAsync()

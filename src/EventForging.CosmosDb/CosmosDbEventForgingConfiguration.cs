@@ -62,14 +62,37 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
         }
     }
 
+    public void AddEventsContainerForAggregate(string databaseName, string eventsContainerName, Type aggregateType, Action<ICosmosDbEventsContainerConfiguration>? configure = default)
+    {
+        AddAggregateLocations(databaseName, eventsContainerName, aggregateType);
+        configure?.Invoke(new CosmosDbEventsContainerConfiguration(this, databaseName, eventsContainerName));
+    }
+
+    public void AddEventsContainerForAggregates(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Action<ICosmosDbEventsContainerConfiguration>? configure = default)
+    {
+        AddAggregateLocations(databaseName, eventsContainerName, aggregatesAssembly);
+        configure?.Invoke(new CosmosDbEventsContainerConfiguration(this, databaseName, eventsContainerName));
+    }
+
+    public void AddEventsContainerForAggregates(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Func<Type, bool> aggregateTypeFilter, Action<ICosmosDbEventsContainerConfiguration>? configure = default)
+    {
+        AddAggregateLocations(databaseName, eventsContainerName, aggregatesAssembly, aggregateTypeFilter);
+        configure?.Invoke(new CosmosDbEventsContainerConfiguration(this, databaseName, eventsContainerName));
+    }
+
     public void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime)
+    {
+        AddEventsSubscription(subscriptionName, databaseName, eventsContainerName, changeFeedName, startTime, null);
+    }
+
+    public void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime, TimeSpan? pollInterval)
     {
         if (_subscriptions.Any(s => s.ChangeFeedName == changeFeedName))
         {
             throw new EventForgingConfigurationException($"Cannot add two event subscriptions with the same change feed name. Duplicated name is '{changeFeedName}'.");
         }
 
-        _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, databaseName, eventsContainerName, changeFeedName, startTime));
+        _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, databaseName, eventsContainerName, changeFeedName, startTime, pollInterval));
     }
 
     public void SetStreamIdFactory(IStreamIdFactory streamIdFactory)

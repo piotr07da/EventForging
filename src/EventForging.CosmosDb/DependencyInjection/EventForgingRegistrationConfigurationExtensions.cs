@@ -45,5 +45,17 @@ public static class EventForgingRegistrationConfigurationExtensions
         {
             throw new EventForgingConfigurationException("Connection string must be defined.");
         }
+
+        foreach (var subscription in configuration.Subscriptions)
+        {
+            var hasMatchingAggregateLocation = configuration.AggregateLocations.Values.Any(location =>
+                location.DatabaseName == subscription.DatabaseName &&
+                location.EventsContainerName == subscription.EventsContainerName);
+
+            if (!hasMatchingAggregateLocation)
+            {
+                throw new EventForgingConfigurationException($"Cannot add event subscription '{subscription.SubscriptionName}' for [{subscription.DatabaseName}, {subscription.EventsContainerName}]. Register aggregate location for this database and events container first using {nameof(ICosmosDbEventForgingConfiguration)}.{nameof(ICosmosDbEventForgingConfiguration.AddAggregateLocations)}.");
+            }
+        }
     }
 }

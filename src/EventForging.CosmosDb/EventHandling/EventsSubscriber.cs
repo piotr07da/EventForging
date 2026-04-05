@@ -19,7 +19,6 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     private readonly GroupsMerger<ContainerItem, ReceivedEvent> _changesMerger;
 
     private readonly IList<ChangeFeedProcessor> _changeFeedProcessors = new List<ChangeFeedProcessor>();
-    private bool _stopRequested;
 
     // ReSharper disable once ConvertToPrimaryConstructor
     public EventsSubscriber(
@@ -49,13 +48,18 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             var changeFeedProcessorBuilder = container
                 .GetChangeFeedProcessorBuilder(
                     subscription.ChangeFeedName,
-                    (context, changes, cancellationToken) => HandleChangesAsync(subscription.SubscriptionName, context, changes, cancellationToken))
+                    (context, changes, ct) => HandleChangesAsync(subscription.SubscriptionName, context, changes, ct))
                 .WithInstanceName(Environment.MachineName)
                 .WithLeaseContainer(_cosmosDbProvider.GetLeaseContainer(subscription.DatabaseName));
 
             if (subscription.StartTime.HasValue)
             {
                 changeFeedProcessorBuilder = changeFeedProcessorBuilder.WithStartTime(subscription.StartTime.Value);
+            }
+
+            if (subscription.PollInterval.HasValue)
+            {
+                changeFeedProcessorBuilder = changeFeedProcessorBuilder.WithPollInterval(subscription.PollInterval.Value);
             }
 
             var changeFeedProcessor = changeFeedProcessorBuilder.Build();
@@ -67,8 +71,6 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        _stopRequested = true;
-
         foreach (var changeFeedProcessor in _changeFeedProcessors)
         {
             try
@@ -84,8 +86,6 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
     private async Task HandleChangesAsync(string subscriptionName, ChangeFeedProcessorContext context, Stream changes, CancellationToken cancellationToken)
     {
-        const string stopRequestedExceptionMessage = "Stop has been requested. Cannot finish processing for received changes. Batch of changes will not be confirmed and will be redelivered.";
-
         var containerItems = new List<ContainerItem>();
         await foreach (var containerItem in changes.DeserializeStreamAsync(_serializerOptionsProvider.Get(), cancellationToken))
         {
@@ -102,14 +102,6 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
             var receivedEventsBatch = new ReceivedEventsBatch(batch);
             await _eventDispatcher.DispatchAsync(subscriptionName, receivedEventsBatch, cancellationToken);
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        // Throw after the loop to avoid situation of incorrectly handled changes which is probable after the stop request.
-        if (_stopRequested)
-        {
-            throw new EventForgingException(stopRequestedExceptionMessage);
         }
     }
 

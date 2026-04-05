@@ -283,7 +283,9 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             var transaction = GetContainer<TAggregate>().CreateTransactionalBatch(new PartitionKey(streamId));
 
             if (retrievedVersion.AggregateDoesNotExist)
+            {
                 transaction.CreateItem(CreateStreamHeaderDocument(streamId, events.Count), requestOptions);
+            }
             else
             {
                 long expectedHeaderVersion;
@@ -301,7 +303,9 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
                     expectedHeaderVersion = -1L;
                 }
                 else
+                {
                     expectedHeaderVersion = expectedVersion;
+                }
 
                 var headerPatchRequestOptions = new TransactionalBatchPatchItemRequestOptions
                 {
@@ -309,7 +313,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
                     FilterPredicate = $"FROM x WHERE x.version = {expectedHeaderVersion}",
                 };
 
-                transaction.PatchItem(HeaderDocument.CreateId(streamId), new[] { PatchOperation.Increment("/version", events.Count), }, headerPatchRequestOptions);
+                transaction.PatchItem(HeaderDocument.CreateId(streamId), [PatchOperation.Increment("/version", events.Count),], headerPatchRequestOptions);
             }
 
             if (_cosmosConfiguration.EventPacking is EventPackingMode.Disabled or EventPackingMode.UniformDistributionFilling)
@@ -396,7 +400,9 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             }
 
             if (!response.IsSuccessStatusCode)
+            {
                 throw new EventForgingException(response.ErrorMessage);
+            }
         }
         catch (Exception ex)
         {
@@ -434,31 +440,49 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         if (initiatorId == Guid.Empty)
             return false;
 
-        var query = new QueryDefinition($"SELECT VALUE COUNT(1) FROM c WHERE c.metadata.initiatorId = @initiatorId AND (c.documentType = '{DocumentType.Event}' OR c.documentType = '{DocumentType.EventsPacket}')")
-            .WithParameter("@initiatorId", initiatorId.ToString());
-        var iterator = GetContainer<TAggregate>().GetItemQueryIterator<int>(query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, });
-
-        var page = await iterator.ReadNextAsync(cancellationToken);
-
-        if (page is null)
+        if (_configuration.IdempotencyEnabled)
         {
-            return false;
+            var firstDocumentId = IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, 0).ToString();
+            using var response = await GetContainer<TAggregate>().ReadItemStreamAsync(firstDocumentId, new PartitionKey(streamId), cancellationToken: cancellationToken);
+
+            if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
+            {
+                throw new EventForgingException($"The idempotency verification failed while checking whether events for initiatorId '{initiatorId}' were already written to stream '{streamId}'. Cosmos DB point read for document '{firstDocumentId}' returned status code {response.StatusCode} with message: {response.ErrorMessage}");
+            }
+
+            var checkResult = response.StatusCode != HttpStatusCode.NotFound;
+
+            activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
+                "The idempotency check associated with the given initiatorId has been successfully completed.",
+                response.StatusCode,
+                response.Headers.RequestCharge,
+                new Dictionary<string, string>
+                {
+                    { TracingAttributeNames.InitiatorId, initiatorId.ToString() },
+                    { CosmosDbTracingAttributeNames.EventDatabaseWriteIdempotencyCheckResult, checkResult.ToString().ToLower() },
+                });
+
+            return checkResult;
         }
 
-        var first = page.FirstOrDefault();
-        var checkResult = first > 0;
+        var query = new QueryDefinition($"SELECT TOP 1 VALUE c.id FROM c WHERE c.metadata.initiatorId = @initiatorId AND (c.documentType = '{DocumentType.Event}' OR c.documentType = '{DocumentType.EventsPacket}')")
+            .WithParameter("@initiatorId", initiatorId.ToString());
+        var iterator = GetContainer<TAggregate>().GetItemQueryIterator<string>(query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = 1, });
+
+        var page = await iterator.ReadNextAsync(cancellationToken);
+        var fallbackCheckResult = page.Any();
 
         activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
-            "The check for any events associated with the given initiatorId has been successfully completed.",
+            "The idempotency check associated with the given initiatorId has been successfully completed.",
             page.StatusCode,
             page.RequestCharge,
             new Dictionary<string, string>
             {
                 { TracingAttributeNames.InitiatorId, initiatorId.ToString() },
-                { CosmosDbTracingAttributeNames.EventDatabaseWriteIdempotencyCheckResult, checkResult.ToString().ToLower() },
+                { CosmosDbTracingAttributeNames.EventDatabaseWriteIdempotencyCheckResult, fallbackCheckResult.ToString().ToLower() },
             });
 
-        return checkResult;
+        return fallbackCheckResult;
     }
 
     private static async Task<IReadOnlyList<string>> ReadHeaderDocumentIdsAsync(Container container, string streamId, CancellationToken cancellationToken)

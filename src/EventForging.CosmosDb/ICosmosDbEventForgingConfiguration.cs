@@ -31,8 +31,12 @@ public interface ICosmosDbEventForgingConfiguration
 
     void AddAggregateLocations(string databaseName, string eventsContainerName, params Type[] aggregateTypes);
     void AddAggregateLocations(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Func<Type, bool>? aggregateTypeFilter = default);
+    void AddEventsContainerForAggregate(string databaseName, string eventsContainerName, Type aggregateType, Action<ICosmosDbEventsContainerConfiguration>? configure = default);
+    void AddEventsContainerForAggregates(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Action<ICosmosDbEventsContainerConfiguration>? configure = default);
+    void AddEventsContainerForAggregates(string databaseName, string eventsContainerName, Assembly aggregatesAssembly, Func<Type, bool> aggregateTypeFilter, Action<ICosmosDbEventsContainerConfiguration>? configure = default);
 
     void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime);
+    void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime, TimeSpan? pollInterval);
 
     /// <summary>Allows to set custom stream id factory.</summary>
     /// <param name="streamIdFactory">The custom stream id factory.</param>
