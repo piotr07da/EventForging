@@ -120,7 +120,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             }
 
             var md = eventDocument.Metadata;
-            var ei = new EventInfo(eventDocument.StreamId!, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+            var ei = new EventInfo(eventDocument.StreamId!, Guid.Parse(eventDocument.Id!), eventDocument.EventNumber, eventDocument.EventType, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).UtcDateTime, md.CustomProperties ?? new Dictionary<string, string>());
             var deserializedEventData = _eventSerializer.DeserializeFromString(eventDocument.EventType, eventDocument.Data!.ToString()!);
             yield return new ReceivedEvent(deserializedEventData, ei);
         }
@@ -135,7 +135,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
             foreach (var e in eventsPacketDocument.Events)
             {
-                var ei = new EventInfo(eventsPacketDocument.StreamId!, e.EventId, e.EventNumber, e.EventType, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).DateTime, md.CustomProperties ?? new Dictionary<string, string>());
+                var ei = new EventInfo(eventsPacketDocument.StreamId!, e.EventId, e.EventNumber, e.EventType, md!.ConversationId, md.InitiatorId, DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).UtcDateTime, md.CustomProperties ?? new Dictionary<string, string>());
                 var deserializedEventData = _eventSerializer.DeserializeFromString(e.EventType, e.Data!.ToString()!);
                 yield return new ReceivedEvent(deserializedEventData, ei);
             }
