@@ -344,6 +344,23 @@ c.AddEventsContainerForAggregates("DatabaseName", "EventsContainerName", assembl
 });
 ```
 
+#### Event packing
+
+By default, CosmosDb saves all events created during a single save operation in one packet document:
+
+```csharp
+c.EventPacking = EventPackingMode.AllEventsInOnePacket;
+```
+
+This reduces the number of written documents, documents read during aggregate rehydration, and items handled by the
+change feed processor. If needed, the packing mode can be overridden:
+
+```csharp
+c.EventPacking = EventPackingMode.Disabled;
+c.EventPacking = EventPackingMode.UniformDistributionFilling;
+c.EventPacking = EventPackingMode.AllEventsInOnePacket;
+```
+
 #### Event handling
 
 To subscribe to event streams, subscriptions must be added.

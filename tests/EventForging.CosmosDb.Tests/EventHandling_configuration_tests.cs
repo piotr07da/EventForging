@@ -8,6 +8,24 @@ namespace EventForging.CosmosDb.Tests;
 public sealed class EventHandling_configuration_tests
 {
     [Fact]
+    public void event_packing_shall_default_to_all_events_in_one_packet()
+    {
+        var services = new ServiceCollection();
+        services.AddEventForging(r =>
+        {
+            r.UseCosmosDb(cc =>
+            {
+                cc.ConnectionString = ConnectionInfo.ConnectionString;
+            });
+        });
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var configuration = serviceProvider.GetRequiredService<ICosmosDbEventForgingConfiguration>();
+
+        Assert.Equal(EventPackingMode.AllEventsInOnePacket, configuration.EventPacking);
+    }
+
+    [Fact]
     public void adding_two_subscriptions_with_the_same_changeFeed_name_shall_throw_exception()
     {
         var ex = Assert.Throws<EventForgingConfigurationException>(() =>

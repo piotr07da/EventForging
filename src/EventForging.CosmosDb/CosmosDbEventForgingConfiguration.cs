@@ -14,7 +14,7 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
     public bool IgnoreServerCertificateValidation { get; set; }
     public IReadOnlyList<SubscriptionConfiguration> Subscriptions => _subscriptions;
     public bool CreateDatabasesAndContainersIfNotExist { get; set; } = true;
-    public EventPackingMode EventPacking { get; set; } = EventPackingMode.Disabled;
+    public EventPackingMode EventPacking { get; set; } = EventPackingMode.AllEventsInOnePacket;
 
     public bool EnableEventPacking
     {

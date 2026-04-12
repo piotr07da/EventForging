@@ -16,8 +16,6 @@ internal sealed class EventsSubscriber : IEventsSubscriber
     private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
     private readonly ILogger _logger;
 
-    private readonly GroupsMerger<ContainerItem, ReceivedEvent> _changesMerger;
-
     private readonly IList<ChangeFeedProcessor> _changeFeedProcessors = new List<ChangeFeedProcessor>();
 
     // ReSharper disable once ConvertToPrimaryConstructor
@@ -35,8 +33,6 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         _eventSerializer = eventSerializer ?? throw new ArgumentNullException(nameof(eventSerializer));
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
         _logger = loggerProvider.Logger;
-
-        _changesMerger = CreateChangesMerger();
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -86,15 +82,28 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
     private async Task HandleChangesAsync(string subscriptionName, ChangeFeedProcessorContext context, Stream changes, CancellationToken cancellationToken)
     {
-        var containerItems = new List<ContainerItem>();
+        var batchesByStreamId = new Dictionary<string, List<ReceivedEvent>>();
+        var streamIdsInOrder = new List<string>();
+
         await foreach (var containerItem in changes.DeserializeStreamAsync(_serializerOptionsProvider.Get(), cancellationToken))
         {
-            containerItems.Add(containerItem);
+            var streamId = containerItem.GetStringValue("streamId");
+            if (!batchesByStreamId.TryGetValue(streamId, out var batch))
+            {
+                batch = new List<ReceivedEvent>();
+                batchesByStreamId.Add(streamId, batch);
+                streamIdsInOrder.Add(streamId);
+            }
+
+            foreach (var receivedEvent in ExtractReceivedEvents(containerItem))
+            {
+                batch.Add(receivedEvent);
+            }
         }
 
-        var batches = _changesMerger.Merge(containerItems);
-        foreach (var batch in batches)
+        foreach (var streamId in streamIdsInOrder)
         {
+            var batch = batchesByStreamId[streamId];
             if (batch.Count == 0)
             {
                 continue;
@@ -105,14 +114,9 @@ internal sealed class EventsSubscriber : IEventsSubscriber
         }
     }
 
-    private GroupsMerger<ContainerItem, ReceivedEvent> CreateChangesMerger()
-    {
-        return new GroupsMerger<ContainerItem, ReceivedEvent>(ci => ci.GetStringValue("streamId"), ExtractReceivedEvents);
-    }
-
     private IEnumerable<ReceivedEvent> ExtractReceivedEvents(ContainerItem containerItem)
     {
-        if (containerItem.TryHandleAs<EventDocument>(DocumentType.Event.ToString(), out var eventDocument))
+        if (containerItem.TryHandleAs<EventDocument>(nameof(DocumentType.Event), out var eventDocument))
         {
             if (eventDocument.IsDeleted == true)
             {
@@ -124,7 +128,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             var deserializedEventData = _eventSerializer.DeserializeFromString(eventDocument.EventType, eventDocument.Data!.ToString()!);
             yield return new ReceivedEvent(deserializedEventData, ei);
         }
-        else if (containerItem.TryHandleAs<EventsPacketDocument>(DocumentType.EventsPacket.ToString(), out var eventsPacketDocument))
+        else if (containerItem.TryHandleAs<EventsPacketDocument>(nameof(DocumentType.EventsPacket), out var eventsPacketDocument))
         {
             if (eventsPacketDocument.IsDeleted == true)
             {
