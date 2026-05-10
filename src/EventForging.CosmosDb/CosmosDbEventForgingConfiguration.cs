@@ -15,6 +15,8 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
     public IReadOnlyList<SubscriptionConfiguration> Subscriptions => _subscriptions;
     public bool CreateDatabasesAndContainersIfNotExist { get; set; } = true;
     public EventPackingMode EventPacking { get; set; } = EventPackingMode.AllEventsInOnePacket;
+    public int? MaxRetryAttemptsOnRateLimitedRequests { get; set; }
+    public TimeSpan? MaxRetryWaitTimeOnRateLimitedRequests { get; set; }
 
     public bool EnableEventPacking
     {

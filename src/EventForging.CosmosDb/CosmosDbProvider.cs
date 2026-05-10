@@ -44,6 +44,16 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
             clientOptions.ConnectionMode = ConnectionMode.Gateway;
         }
 
+        if (_configuration.MaxRetryAttemptsOnRateLimitedRequests.HasValue)
+        {
+            clientOptions.MaxRetryAttemptsOnRateLimitedRequests = _configuration.MaxRetryAttemptsOnRateLimitedRequests.Value;
+        }
+
+        if (_configuration.MaxRetryWaitTimeOnRateLimitedRequests.HasValue)
+        {
+            clientOptions.MaxRetryWaitTimeOnRateLimitedRequests = _configuration.MaxRetryWaitTimeOnRateLimitedRequests.Value;
+        }
+
         _client = new CosmosClient(_configuration.ConnectionString, clientOptions);
 
         foreach (var kvp in _configuration.AggregateLocations)
@@ -110,42 +120,58 @@ internal sealed class CosmosDbProvider : ICosmosDbProvider
 
     private async Task<Database> InitializeDatabaseAsync(string databaseName, CancellationToken cancellationToken)
     {
-        if (!_databases.TryGetValue(databaseName, out var database))
+        try
         {
-            if (_configuration.CreateDatabasesAndContainersIfNotExist)
+            if (!_databases.TryGetValue(databaseName, out var database))
             {
-                database = await _client!.CreateDatabaseIfNotExistsAsync(databaseName, cancellationToken: cancellationToken);
-            }
-            else
-            {
-                database = _client!.GetDatabase(databaseName);
+                if (_configuration.CreateDatabasesAndContainersIfNotExist)
+                {
+                    database = await _client!.CreateDatabaseIfNotExistsAsync(databaseName, cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    database = _client!.GetDatabase(databaseName);
+                }
+
+                _databases.Add(databaseName, database);
             }
 
-            _databases.Add(databaseName, database);
+            return database;
         }
-
-        return database;
+        catch (CosmosException ex)
+        {
+            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+            throw;
+        }
     }
 
     private async Task<Container> InitializeContainerAsync(Database database, string containerName, string partitionKeyPath, CancellationToken cancellationToken)
     {
         var containerKey = ContainerCacheKey(database.Id, containerName);
 
-        if (!_containers.TryGetValue(containerKey, out var container))
+        try
         {
-            if (_configuration.CreateDatabasesAndContainersIfNotExist)
+            if (!_containers.TryGetValue(containerKey, out var container))
             {
-                container = await database.CreateContainerIfNotExistsAsync(containerName, partitionKeyPath, cancellationToken: cancellationToken);
-            }
-            else
-            {
-                container = database.GetContainer(containerName);
+                if (_configuration.CreateDatabasesAndContainersIfNotExist)
+                {
+                    container = await database.CreateContainerIfNotExistsAsync(containerName, partitionKeyPath, cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    container = database.GetContainer(containerName);
+                }
+
+                _containers.Add(containerKey, container);
             }
 
-            _containers.Add(containerKey, container);
+            return container;
         }
-
-        return container;
+        catch (CosmosException ex)
+        {
+            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+            throw;
+        }
     }
 
     private static string ContainerCacheKey(string databaseName, string containerName) => $"~~{databaseName}~~{containerName}~~";

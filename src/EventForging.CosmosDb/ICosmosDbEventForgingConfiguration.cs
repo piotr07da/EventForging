@@ -18,6 +18,8 @@ public interface ICosmosDbEventForgingConfiguration
     IReadOnlyList<SubscriptionConfiguration> Subscriptions { get; }
     public bool CreateDatabasesAndContainersIfNotExist { get; set; }
     public EventPackingMode EventPacking { get; set; }
+    public int? MaxRetryAttemptsOnRateLimitedRequests { get; set; }
+    public TimeSpan? MaxRetryWaitTimeOnRateLimitedRequests { get; set; }
 
     [Obsolete("Use EventPacking instead.")]
     public bool EnableEventPacking { get; set; }

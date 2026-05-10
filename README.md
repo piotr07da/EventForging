@@ -391,6 +391,31 @@ As a consequence of this solution, it is necessary to define the number of attem
 This is done using the configuration parameter `RetryCountForUnexpectedVersionWhenExpectedVersionIsAny`.
 By default, this parameter is set to 10.
 
+#### Too many requests
+
+EventForging relies on the default retry behavior of the Azure Cosmos DB SDK for short `429 TooManyRequests`
+throttling periods. It does not add its own application-level retry policy around aggregate reads, aggregate writes,
+deletes, or change feed handling.
+
+If the SDK exhausts its retry budget and Cosmos DB still returns `429 TooManyRequests`, EventForging throws
+`EventForgingCosmosDbTooManyRequestsException`. The exception exposes the `RetryAfter` and `RequestCharge` values when
+they are available from the Cosmos DB response.
+
+The application can tune the Cosmos DB SDK retry budget for rate-limited requests:
+
+```csharp
+r.UseCosmosDb(c =>
+{
+    c.ConnectionString = "...";
+    c.MaxRetryAttemptsOnRateLimitedRequests = 9;
+    c.MaxRetryWaitTimeOnRateLimitedRequests = TimeSpan.FromSeconds(30);
+});
+```
+
+For command processing and event handlers, the application should still define its own retry, backpressure, or queueing
+policy. This is especially important for writes; retries should be paired with a stable `initiatorId` and idempotency
+when the caller needs to safely repeat a command after an uncertain result.
+
 ## Examples
 
 An example application can be found [here](https://github.com/piotr07da/EventForgingOutcomes-Sample).

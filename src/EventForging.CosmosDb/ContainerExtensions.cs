@@ -12,18 +12,32 @@ internal static class ContainerExtensions
         var streamIterator = container.GetItemQueryStreamIterator(queryDefinition, requestOptions: requestOptions);
         while (streamIterator.HasMoreResults)
         {
-            using var response = await streamIterator.ReadNextAsync(cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
+            ResponseMessage response;
+            try
             {
-                throw new EventForgingException($"Cosmos DB query failed with status code {response.StatusCode} and message: {response.ErrorMessage}");
+                response = await streamIterator.ReadNextAsync(cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+                throw;
             }
 
-            onPageEntry(response!);
-
-            await foreach (var containerItem in response.Content.DeserializeStreamAsync(deserializationOptions, cancellationToken))
+            using (response)
             {
-                yield return containerItem;
+                EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(response);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new EventForgingException($"Cosmos DB query failed with status code {response.StatusCode} and message: {response.ErrorMessage}");
+                }
+
+                onPageEntry(response);
+
+                await foreach (var containerItem in response.Content.DeserializeStreamAsync(deserializationOptions, cancellationToken))
+                {
+                    yield return containerItem;
+                }
             }
         }
     }

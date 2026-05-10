@@ -68,6 +68,27 @@ public sealed class EventHandling_configuration_tests
     }
 
     [Fact]
+    public void cosmos_client_rate_limited_retry_options_shall_be_stored()
+    {
+        var services = new ServiceCollection();
+        services.AddEventForging(r =>
+        {
+            r.UseCosmosDb(cc =>
+            {
+                cc.ConnectionString = ConnectionInfo.ConnectionString;
+                cc.MaxRetryAttemptsOnRateLimitedRequests = 3;
+                cc.MaxRetryWaitTimeOnRateLimitedRequests = TimeSpan.FromSeconds(11);
+            });
+        });
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var configuration = serviceProvider.GetRequiredService<ICosmosDbEventForgingConfiguration>();
+
+        Assert.Equal(3, configuration.MaxRetryAttemptsOnRateLimitedRequests);
+        Assert.Equal(TimeSpan.FromSeconds(11), configuration.MaxRetryWaitTimeOnRateLimitedRequests);
+    }
+
+    [Fact]
     public void adding_events_container_for_aggregate_shall_register_location_and_subscription()
     {
         var services = new ServiceCollection();

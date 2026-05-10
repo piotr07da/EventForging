@@ -9,4 +9,7 @@ public static partial class LoggerExtensions
 
     [LoggerMessage(1002, LogLevel.Information, "An unexpected version of aggregate '{AggregateId}' has been detected. The retrieved version was '{RetrievedVersion}', but the current version is '{ActualVersion}'. Retrying attempt {TryIndex} of {RetryCountForUnexpectedVersionWhenExpectedVersionIsAny}. The expected version was 'Any', but in the CosmosDb implementation, a check between the retrieved and actual versions is still required.")]
     public static partial void RetryingDueToUnexpectedVersionOfAggregateWhenExpectedVersionIsAny(this ILogger logger, Exception exception, string aggregateId, AggregateVersion retrievedVersion, AggregateVersion actualVersion, int tryIndex, int retryCountForUnexpectedVersionWhenExpectedVersionIsAny);
+
+    [LoggerMessage(1003, LogLevel.Warning, "Cosmos DB change feed processor for subscription '{SubscriptionName}' was throttled on lease '{LeaseToken}'.")]
+    public static partial void ChangeFeedProcessorThrottled(this ILogger logger, Exception exception, string subscriptionName, string leaseToken);
 }

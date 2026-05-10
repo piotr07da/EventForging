@@ -384,6 +384,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             var response = await transaction.ExecuteAsync(cancellationToken);
 
             activity?.EnrichEventDatabaseWriteAttemptActivityWithResponse(response);
+            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(response);
 
             if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
             {
@@ -403,6 +404,12 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             {
                 throw new EventForgingException(response.ErrorMessage);
             }
+        }
+        catch (CosmosException ex)
+        {
+            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+            activity?.RecordException(ex);
+            throw;
         }
         catch (Exception ex)
         {
@@ -427,6 +434,12 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
 
             return currentVersion;
         }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("An exception occurred during the read of the current version of the aggregate.", ex.StatusCode, ex.RequestCharge);
+            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+            throw;
+        }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
             activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("An exception occurred during the read of the current version of the aggregate.", ex.StatusCode, ex.RequestCharge);
@@ -443,33 +456,56 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         if (_configuration.IdempotencyEnabled)
         {
             var firstDocumentId = IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, 0).ToString();
-            using var response = await GetContainer<TAggregate>().ReadItemStreamAsync(firstDocumentId, new PartitionKey(streamId), cancellationToken: cancellationToken);
-
-            if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
+            ResponseMessage response;
+            try
             {
-                throw new EventForgingException($"The idempotency verification failed while checking whether events for initiatorId '{initiatorId}' were already written to stream '{streamId}'. Cosmos DB point read for document '{firstDocumentId}' returned status code {response.StatusCode} with message: {response.ErrorMessage}");
+                response = await GetContainer<TAggregate>().ReadItemStreamAsync(firstDocumentId, new PartitionKey(streamId), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+                throw;
             }
 
-            var checkResult = response.StatusCode != HttpStatusCode.NotFound;
+            using (response)
+            {
+                EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(response);
 
-            activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
-                "The idempotency check associated with the given initiatorId has been successfully completed.",
-                response.StatusCode,
-                response.Headers.RequestCharge,
-                new Dictionary<string, string>
+                if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
                 {
-                    { TracingAttributeNames.InitiatorId, initiatorId.ToString() },
-                    { CosmosDbTracingAttributeNames.EventDatabaseWriteIdempotencyCheckResult, checkResult.ToString().ToLower() },
-                });
+                    throw new EventForgingException($"The idempotency verification failed while checking whether events for initiatorId '{initiatorId}' were already written to stream '{streamId}'. Cosmos DB point read for document '{firstDocumentId}' returned status code {response.StatusCode} with message: {response.ErrorMessage}");
+                }
 
-            return checkResult;
+                var checkResult = response.StatusCode != HttpStatusCode.NotFound;
+
+                activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
+                    "The idempotency check associated with the given initiatorId has been successfully completed.",
+                    response.StatusCode,
+                    response.Headers.RequestCharge,
+                    new Dictionary<string, string>
+                    {
+                        { TracingAttributeNames.InitiatorId, initiatorId.ToString() },
+                        { CosmosDbTracingAttributeNames.EventDatabaseWriteIdempotencyCheckResult, checkResult.ToString().ToLower() },
+                    });
+
+                return checkResult;
+            }
         }
 
         var query = new QueryDefinition($"SELECT TOP 1 VALUE c.id FROM c WHERE c.metadata.initiatorId = @initiatorId AND (c.documentType = '{DocumentType.Event}' OR c.documentType = '{DocumentType.EventsPacket}')")
             .WithParameter("@initiatorId", initiatorId.ToString());
         var iterator = GetContainer<TAggregate>().GetItemQueryIterator<string>(query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = 1, });
 
-        var page = await iterator.ReadNextAsync(cancellationToken);
+        FeedResponse<string> page;
+        try
+        {
+            page = await iterator.ReadNextAsync(cancellationToken);
+        }
+        catch (CosmosException ex)
+        {
+            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+            throw;
+        }
         var fallbackCheckResult = page.Any();
 
         activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
@@ -517,7 +553,17 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         var documentIds = new List<string>();
         while (iterator.HasMoreResults)
         {
-            var page = await iterator.ReadNextAsync(cancellationToken);
+            FeedResponse<string> page;
+            try
+            {
+                page = await iterator.ReadNextAsync(cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+                throw;
+            }
+
             foreach (var documentId in page)
             {
                 if (!string.IsNullOrWhiteSpace(documentId))
@@ -532,16 +578,32 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
 
     private static async Task MarkStreamDocumentAsDeletedAsync(Container container, string streamId, string documentId, CancellationToken cancellationToken)
     {
-        await container.PatchItemAsync<object>(
-            documentId,
-            new PartitionKey(streamId),
-            new[] { PatchOperation.Set("/isDeleted", true), },
-            cancellationToken: cancellationToken);
+        try
+        {
+            await container.PatchItemAsync<object>(
+                documentId,
+                new PartitionKey(streamId),
+                new[] { PatchOperation.Set("/isDeleted", true), },
+                cancellationToken: cancellationToken);
+        }
+        catch (CosmosException ex)
+        {
+            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+            throw;
+        }
     }
 
     private static async Task DeleteStreamDocumentPermanentlyAsync(Container container, string streamId, string documentId, CancellationToken cancellationToken)
     {
-        await container.DeleteItemAsync<object>(documentId, new PartitionKey(streamId), cancellationToken: cancellationToken);
+        try
+        {
+            await container.DeleteItemAsync<object>(documentId, new PartitionKey(streamId), cancellationToken: cancellationToken);
+        }
+        catch (CosmosException ex)
+        {
+            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
+            throw;
+        }
     }
 
     private Container GetContainer<TAggregate>()

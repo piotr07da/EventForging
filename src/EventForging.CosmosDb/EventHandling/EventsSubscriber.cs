@@ -4,6 +4,8 @@ using EventForging.EventsHandling;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using System.Net;
+using EventForging.CosmosDb.Diagnostics.Logging;
 
 namespace EventForging.CosmosDb.EventHandling;
 
@@ -46,7 +48,8 @@ internal sealed class EventsSubscriber : IEventsSubscriber
                     subscription.ChangeFeedName,
                     (context, changes, ct) => HandleChangesAsync(subscription.SubscriptionName, context, changes, ct))
                 .WithInstanceName(Environment.MachineName)
-                .WithLeaseContainer(_cosmosDbProvider.GetLeaseContainer(subscription.DatabaseName));
+                .WithLeaseContainer(_cosmosDbProvider.GetLeaseContainer(subscription.DatabaseName))
+                .WithErrorNotification((leaseToken, exception) => HandleErrorAsync(subscription.SubscriptionName, leaseToken, exception));
 
             if (subscription.StartTime.HasValue)
             {
@@ -112,6 +115,16 @@ internal sealed class EventsSubscriber : IEventsSubscriber
             var receivedEventsBatch = new ReceivedEventsBatch(batch);
             await _eventDispatcher.DispatchAsync(subscriptionName, receivedEventsBatch, cancellationToken);
         }
+    }
+
+    private Task HandleErrorAsync(string subscriptionName, string leaseToken, Exception exception)
+    {
+        if (exception is CosmosException { StatusCode: HttpStatusCode.TooManyRequests })
+        {
+            _logger.ChangeFeedProcessorThrottled(exception, subscriptionName, leaseToken);
+        }
+
+        return Task.CompletedTask;
     }
 
     private IEnumerable<ReceivedEvent> ExtractReceivedEvents(ContainerItem containerItem)
