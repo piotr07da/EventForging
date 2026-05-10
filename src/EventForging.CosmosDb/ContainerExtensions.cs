@@ -25,14 +25,13 @@ internal static class ContainerExtensions
 
             using (response)
             {
+                onPageEntry(response);
                 EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(response);
 
                 if (!response.IsSuccessStatusCode)
                 {
                     throw new EventForgingException($"Cosmos DB query failed with status code {response.StatusCode} and message: {response.ErrorMessage}");
                 }
-
-                onPageEntry(response);
 
                 await foreach (var containerItem in response.Content.DeserializeStreamAsync(deserializationOptions, cancellationToken))
                 {

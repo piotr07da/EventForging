@@ -7,6 +7,7 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
 {
     private readonly Dictionary<Type, AggregateLocationConfiguration> _aggregateLocations = new();
     private readonly List<SubscriptionConfiguration> _subscriptions = new();
+    private readonly EventDatabaseOperationRequestChargeMetricConfiguration _eventDatabaseOperationRequestChargeMetric = new();
 
     public string? ConnectionString { get; set; }
     public IReadOnlyDictionary<Type, AggregateLocationConfiguration> AggregateLocations => _aggregateLocations;
@@ -25,6 +26,7 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
     }
 
     public IStreamIdFactory StreamIdFactory { get; private set; } = new DefaultStreamIdFactory();
+    internal IReadOnlyCollection<string> EventDatabaseOperationRequestChargeMetricCustomPropertyTagNames => _eventDatabaseOperationRequestChargeMetric.CustomPropertyTagNames;
 
     public void AddAggregateLocations(string databaseName, string eventsContainerName, params Type[] aggregateTypes)
     {
@@ -97,6 +99,11 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
         _subscriptions.Add(new SubscriptionConfiguration(subscriptionName, databaseName, eventsContainerName, changeFeedName, startTime, pollInterval));
     }
 
+    public void ConfigureEventDatabaseOperationRequestChargeMetric(Action<ICosmosDbEventDatabaseOperationRequestChargeMetricConfiguration> configure)
+    {
+        configure(_eventDatabaseOperationRequestChargeMetric);
+    }
+
     public void SetStreamIdFactory(IStreamIdFactory streamIdFactory)
     {
         StreamIdFactory = streamIdFactory;
@@ -105,5 +112,22 @@ internal sealed class CosmosDbEventForgingConfiguration : ICosmosDbEventForgingC
     public void SetStreamIdFactory(Func<Type, string, string> streamIdFactory)
     {
         StreamIdFactory = new DelegateStreamIdFactory(streamIdFactory);
+    }
+
+    private sealed class EventDatabaseOperationRequestChargeMetricConfiguration : ICosmosDbEventDatabaseOperationRequestChargeMetricConfiguration
+    {
+        private readonly HashSet<string> _customPropertyTagNames = new();
+
+        public IReadOnlyCollection<string> CustomPropertyTagNames => _customPropertyTagNames;
+
+        public void AddTagForCustomProperty(string customPropertyName)
+        {
+            if (string.IsNullOrWhiteSpace(customPropertyName))
+            {
+                throw new EventForgingConfigurationException("Custom property name for request charge metric tag cannot be empty.");
+            }
+
+            _customPropertyTagNames.Add(customPropertyName);
+        }
     }
 }

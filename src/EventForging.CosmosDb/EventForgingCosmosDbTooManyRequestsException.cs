@@ -19,13 +19,13 @@ public class EventForgingCosmosDbTooManyRequestsException : EventForgingExceptio
         RequestCharge = requestCharge;
     }
 
-    public HttpStatusCode StatusCode => HttpStatusCode.TooManyRequests;
+    public HttpStatusCode StatusCode => (HttpStatusCode)429;
     public TimeSpan? RetryAfter { get; }
     public double? RequestCharge { get; }
 
     internal static void ThrowIfTooManyRequests(CosmosException exception)
     {
-        if (exception.StatusCode == HttpStatusCode.TooManyRequests)
+        if (exception.StatusCode == (HttpStatusCode)429)
         {
             throw Create(exception);
         }
@@ -33,7 +33,7 @@ public class EventForgingCosmosDbTooManyRequestsException : EventForgingExceptio
 
     internal static void ThrowIfTooManyRequests(ResponseMessage response)
     {
-        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        if (response.StatusCode == (HttpStatusCode)429)
         {
             throw Create(response.ErrorMessage, null, response.Headers.RequestCharge);
         }
@@ -41,7 +41,7 @@ public class EventForgingCosmosDbTooManyRequestsException : EventForgingExceptio
 
     internal static void ThrowIfTooManyRequests(TransactionalBatchResponse response)
     {
-        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        if (response.StatusCode == (HttpStatusCode)429)
         {
             throw Create(response.ErrorMessage, response.RetryAfter, response.RequestCharge);
         }

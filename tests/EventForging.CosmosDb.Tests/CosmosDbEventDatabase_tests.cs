@@ -1,6 +1,8 @@
 ﻿// ReSharper disable InconsistentNaming
 
+using System.Diagnostics.Metrics;
 using EventForging.DatabaseIntegrationTests.Common;
+using EventForging.CosmosDb.Diagnostics;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
@@ -164,6 +166,56 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
         await Fixture.do_load_test(100, 10);
     }
 
+    [Fact]
+    public async Task when_aggregate_saved_then_request_charge_metric_contains_configured_custom_property_tag()
+    {
+        var measurements = new List<(double Value, Dictionary<string, object?> Tags)>();
+        using var meterListener = new MeterListener();
+        meterListener.InstrumentPublished = (instrument, listener) =>
+        {
+            if (instrument.Meter.Name == EventForgingCosmosDbDiagnosticsInfo.MeterName && instrument.Name == "eventforging.cosmosdb.event_database_operation.request_charge")
+            {
+                listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        meterListener.SetMeasurementEventCallback<double>((_, measurement, tags, _) =>
+        {
+            var measurementTags = new Dictionary<string, object?>();
+            foreach (var tag in tags)
+            {
+                measurementTags[tag.Key] = tag.Value;
+            }
+
+            measurements.Add((measurement, measurementTags));
+        });
+        meterListener.Start();
+
+        await InitFixtureAsync(
+            EventPackingMode.AllEventsInOnePacket,
+            c => c.ConfigureEventDatabaseOperationRequestChargeMetric(m => m.AddTagForCustomProperty("initiatorName")));
+
+        var userId = Guid.NewGuid();
+        var user = User.Register(userId);
+        var repository = _host!.Services.GetRequiredService<IRepository<User>>();
+        await repository.SaveAsync(
+            userId,
+            user,
+            ExpectedVersion.Retrieved,
+            Guid.Empty,
+            Guid.NewGuid(),
+            new Dictionary<string, string> { { "initiatorName", "RegisterUser" }, });
+
+        var writeMeasurement = Assert.Single(measurements.Where(m =>
+            m.Tags.TryGetValue("ef.operation.name", out var operationName) && Equals(operationName, "write") &&
+            m.Tags.TryGetValue("ef.custom_property.initiatorName", out var initiatorName) && Equals(initiatorName, "RegisterUser")));
+        Assert.True(writeMeasurement.Value > 0);
+        Assert.True(writeMeasurement.Tags.TryGetValue("ef.operation.type", out var operationType) && Equals(operationType, "write"));
+        Assert.True(writeMeasurement.Tags.TryGetValue("ef.operation.result", out var operationResult) && Equals(operationResult, "success"));
+        Assert.True(writeMeasurement.Tags.TryGetValue("ef.aggregate.type", out var aggregateType) && Equals(aggregateType, nameof(User)));
+        Assert.True(writeMeasurement.Tags.TryGetValue("db.system", out var databaseSystem) && Equals(databaseSystem, "cosmosdb"));
+        Assert.True(writeMeasurement.Tags.TryGetValue("db.cosmosdb.container", out var container) && Equals(container, ContainerName));
+    }
+
     private Database GetDatabase()
     {
         if (_cosmosClient is null)
@@ -183,7 +235,7 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
         });
     }
 
-    private async Task InitFixtureAsync(EventPackingMode eventPacking)
+    private async Task InitFixtureAsync(EventPackingMode eventPacking, Action<ICosmosDbEventForgingConfiguration>? configureCosmosDb = null)
     {
         var hostBuilder = new HostBuilder()
             .ConfigureServices(services =>
@@ -203,6 +255,7 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
                         cc.EventPacking = eventPacking;
                         cc.AddAggregateLocations(DatabaseName, ContainerName, assembly);
                         cc.SetStreamIdFactory((t, aId) => $"tests-{t.Name}-{aId}");
+                        configureCosmosDb?.Invoke(cc);
                     });
                 });
                 services.AddSingleton<EventDatabaseTestFixture>();

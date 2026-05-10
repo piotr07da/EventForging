@@ -2,6 +2,7 @@
 using System.Net;
 using System.Runtime.CompilerServices;
 using EventForging.CosmosDb.Diagnostics.Logging;
+using EventForging.CosmosDb.Diagnostics.Metrics;
 using EventForging.CosmosDb.Diagnostics.Tracing;
 using EventForging.Diagnostics.Logging;
 using EventForging.Diagnostics.Tracing;
@@ -43,45 +44,40 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         _logger = loggerProvider.Logger;
     }
 
+    private IReadOnlyCollection<string> EventDatabaseOperationRequestChargeMetricCustomPropertyTagNames => ((CosmosDbEventForgingConfiguration)_cosmosConfiguration).EventDatabaseOperationRequestChargeMetricCustomPropertyTagNames;
+
     public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var records = ReadRecordsAsync<TAggregate>(aggregateId, cancellationToken);
+        var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseReadActivity();
+        var container = GetContainer<TAggregate>();
+        var metricContext = CreateReadEventDatabaseOperationRequestChargeMetricContext<TAggregate>(container);
+
+        var records = InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(aggregateId, container, activity, metricContext, cancellationToken);
         await foreach (var record in records)
         {
             yield return record.EventData;
         }
     }
 
-    public IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseReadActivity();
+        var container = GetContainer<TAggregate>();
+        var metricContext = CreateReadRecordsEventDatabaseOperationRequestChargeMetricContext<TAggregate>(container);
 
-        try
+        var records = InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(aggregateId, container, activity, metricContext, cancellationToken);
+        await foreach (var record in records)
         {
-            var records = InternalReadRecordsAsync<TAggregate>(aggregateId, activity, cancellationToken);
-
-            return records.WithExceptionIntercept(
-                ex =>
-                {
-                    activity?.RecordException(ex);
-                },
-                () =>
-                {
-                    activity?.Complete();
-                },
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            activity?.RecordException(ex);
-            activity?.Complete();
-            throw;
+            yield return record;
         }
     }
 
     public async Task WriteAsync<TAggregate>(string aggregateId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
     {
         var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteActivity(retrievedVersion);
+        var totalRequestCharge = 0.0;
+        var operationResult = "failure";
+        EventDatabaseOperationRequestChargeMetricContext? metricContext = null;
 
         try
         {
@@ -94,6 +90,8 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             }
 
             var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
+            var container = GetContainer<TAggregate>();
+            metricContext = CreateWriteEventDatabaseOperationRequestChargeMetricContext<TAggregate>(container, customProperties);
 
             activity.EnrichEventDatabaseWriteActivityWithStreamId(streamId);
 
@@ -108,7 +106,8 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
 
                 try
                 {
-                    await InternalWriteAsync<TAggregate>(aggregateId, streamId, events, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties, cancellationToken);
+                    await InternalWriteAsync<TAggregate>(aggregateId, streamId, container, events, retrievedVersion, expectedVersion, conversationId, initiatorId, customProperties, requestCharge => totalRequestCharge += requestCharge, cancellationToken);
+                    operationResult = "success";
                     return;
                 }
                 catch (EventForgingUnexpectedVersionException ex)
@@ -138,6 +137,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         }
         finally
         {
+            if (totalRequestCharge > 0.0 && metricContext is not null)
+            {
+                EventDatabaseOperationRequestChargeMetric.Record(totalRequestCharge, operationResult, metricContext, EventDatabaseOperationRequestChargeMetricCustomPropertyTagNames);
+            }
+
             activity?.Complete();
         }
     }
@@ -183,15 +187,38 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         throw new EventForgingException($"Unknown events deletion mode: {deletionMode}.");
     }
 
-    private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsAsync<TAggregate>(string aggregateId, Activity? activity, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    private IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(string aggregateId, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var records = InternalReadRecordsAsync<TAggregate>(aggregateId, container, activity, metricContext, cancellationToken);
+
+            return records.WithExceptionIntercept(
+                ex =>
+                {
+                    activity?.RecordException(ex);
+                },
+                () =>
+                {
+                    activity?.Complete();
+                },
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            activity?.Complete();
+            throw;
+        }
+    }
+
+    private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsAsync<TAggregate>(string aggregateId, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
 
         var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
 
         activity.EnrichEventDatabaseReadActivityWithStreamId(streamId);
-
-        var container = GetContainer<TAggregate>();
 
         var pageCount = 0;
         var totalRequestCharge = 0.0;
@@ -209,50 +236,63 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             },
             cancellationToken);
 
-        await foreach (var item in iterator)
+        var operationResult = "failure";
+        try
         {
-            if (item.TryHandleAs<EventDocument>(DocumentType.Event.ToString(), out var eventDocument))
+            await foreach (var item in iterator)
             {
-                if (eventDocument.IsDeleted == true)
+                if (item.TryHandleAs<EventDocument>(nameof(DocumentType.Event), out var eventDocument))
                 {
-                    continue;
-                }
+                    if (eventDocument.IsDeleted == true)
+                    {
+                        continue;
+                    }
 
-                var eventId = Guid.Parse(eventDocument.Id!);
-                var deserializedEventData = DeserializeEventData(eventDocument.StreamId!, eventDocument.Id!, eventId, eventDocument.Data, eventDocument.EventType);
-
-                yield return new EventDatabaseRecord(
-                    eventId,
-                    eventDocument.EventNumber,
-                    eventDocument.EventType!,
-                    DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).UtcDateTime,
-                    deserializedEventData,
-                    eventDocument.Metadata?.ConversationId ?? Guid.Empty,
-                    eventDocument.Metadata?.InitiatorId ?? Guid.Empty,
-                    eventDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
-            }
-
-            if (item.TryHandleAs<EventsPacketDocument>(DocumentType.EventsPacket.ToString(), out var eventsPacketDocument))
-            {
-                if (eventsPacketDocument.IsDeleted == true)
-                {
-                    continue;
-                }
-
-                foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
-                {
-                    var deserializeEventData = DeserializeEventData(eventsPacketDocument.StreamId!, eventsPacketDocument.Id!, e.EventId, e.Data, e.EventType);
+                    var eventId = Guid.Parse(eventDocument.Id!);
+                    var deserializedEventData = DeserializeEventData(eventDocument.StreamId!, eventDocument.Id!, eventId, eventDocument.Data, eventDocument.EventType);
 
                     yield return new EventDatabaseRecord(
-                        e.EventId,
-                        e.EventNumber,
-                        e.EventType!,
-                        DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).UtcDateTime,
-                        deserializeEventData,
-                        eventsPacketDocument.Metadata?.ConversationId ?? Guid.Empty,
-                        eventsPacketDocument.Metadata?.InitiatorId ?? Guid.Empty,
-                        eventsPacketDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
+                        eventId,
+                        eventDocument.EventNumber,
+                        eventDocument.EventType!,
+                        DateTimeOffset.FromUnixTimeSeconds(eventDocument.Timestamp).UtcDateTime,
+                        deserializedEventData,
+                        eventDocument.Metadata?.ConversationId ?? Guid.Empty,
+                        eventDocument.Metadata?.InitiatorId ?? Guid.Empty,
+                        eventDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
                 }
+
+                if (item.TryHandleAs<EventsPacketDocument>(nameof(DocumentType.EventsPacket), out var eventsPacketDocument))
+                {
+                    if (eventsPacketDocument.IsDeleted == true)
+                    {
+                        continue;
+                    }
+
+                    foreach (var e in eventsPacketDocument.Events ?? throw new EventForgingException($"Events packet {eventsPacketDocument.Id ?? "NULL"} has no events."))
+                    {
+                        var deserializeEventData = DeserializeEventData(eventsPacketDocument.StreamId!, eventsPacketDocument.Id!, e.EventId, e.Data, e.EventType);
+
+                        yield return new EventDatabaseRecord(
+                            e.EventId,
+                            e.EventNumber,
+                            e.EventType!,
+                            DateTimeOffset.FromUnixTimeSeconds(eventsPacketDocument.Timestamp).UtcDateTime,
+                            deserializeEventData,
+                            eventsPacketDocument.Metadata?.ConversationId ?? Guid.Empty,
+                            eventsPacketDocument.Metadata?.InitiatorId ?? Guid.Empty,
+                            eventsPacketDocument.Metadata?.CustomProperties ?? new Dictionary<string, string>());
+                    }
+                }
+            }
+
+            operationResult = "success";
+        }
+        finally
+        {
+            if (totalRequestCharge > 0.0)
+            {
+                EventDatabaseOperationRequestChargeMetric.Record(totalRequestCharge, operationResult, metricContext, EventDatabaseOperationRequestChargeMetricCustomPropertyTagNames);
             }
         }
     }
@@ -269,7 +309,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         return eventData;
     }
 
-    private async Task InternalWriteAsync<TAggregate>(string aggregateId, string streamId, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, CancellationToken cancellationToken = default)
+    private async Task InternalWriteAsync<TAggregate>(string aggregateId, string streamId, Container container, IReadOnlyList<object> events, AggregateVersion retrievedVersion, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string> customProperties, Action<double> onRequestCharge, CancellationToken cancellationToken = default)
     {
         var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseWriteAttemptActivity(retrievedVersion);
 
@@ -280,7 +320,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             activity?.EnrichEventDatabaseWriteAttemptActivityWithStreamId(streamId);
 
             var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };
-            var transaction = GetContainer<TAggregate>().CreateTransactionalBatch(new PartitionKey(streamId));
+            var transaction = container.CreateTransactionalBatch(new PartitionKey(streamId));
 
             if (retrievedVersion.AggregateDoesNotExist)
             {
@@ -384,18 +424,19 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             var response = await transaction.ExecuteAsync(cancellationToken);
 
             activity?.EnrichEventDatabaseWriteAttemptActivityWithResponse(response);
+            onRequestCharge(response.RequestCharge);
             EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(response);
 
             if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
             {
-                var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(streamId, initiatorId, activity, cancellationToken);
+                var alreadyWritten = await CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(streamId, initiatorId, activity, onRequestCharge, cancellationToken);
                 if (alreadyWritten)
                 {
                     _logger.WriteIgnoredDueToIdempotencyCheck(streamId, initiatorId);
                     return;
                 }
 
-                var actualVersion = await ReadCurrentVersionAsync<TAggregate>(streamId, activity, cancellationToken);
+                var actualVersion = await ReadCurrentVersionAsync<TAggregate>(streamId, activity, onRequestCharge, cancellationToken);
 
                 throw new EventForgingUnexpectedVersionException(aggregateId, streamId, expectedVersion, retrievedVersion, actualVersion);
             }
@@ -422,7 +463,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         }
     }
 
-    private async Task<int> ReadCurrentVersionAsync<TAggregate>(string streamId, Activity? activity, CancellationToken cancellationToken = default)
+    private async Task<int> ReadCurrentVersionAsync<TAggregate>(string streamId, Activity? activity, Action<double> onRequestCharge, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -431,24 +472,27 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             var currentVersion = result.Resource.Version;
 
             activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("Current version of the aggregate has been read.", result.StatusCode, result.RequestCharge, new Dictionary<string, string> { { TracingAttributeNames.AggregateVersion, currentVersion.ToString() }, });
+            onRequestCharge(result.RequestCharge);
 
             return currentVersion;
         }
-        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
+        catch (CosmosException ex) when (ex.StatusCode == (HttpStatusCode)429)
         {
             activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("An exception occurred during the read of the current version of the aggregate.", ex.StatusCode, ex.RequestCharge);
+            onRequestCharge(ex.RequestCharge);
             EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
             throw;
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
             activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent("An exception occurred during the read of the current version of the aggregate.", ex.StatusCode, ex.RequestCharge);
+            onRequestCharge(ex.RequestCharge);
 
             throw new EventForgingStreamNotFoundException(streamId, ex);
         }
     }
 
-    private async Task<bool> CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(string streamId, Guid initiatorId, Activity? activity, CancellationToken cancellationToken = default)
+    private async Task<bool> CheckIfContainsAnyEventForGivenInitiatorIdAsync<TAggregate>(string streamId, Guid initiatorId, Activity? activity, Action<double> onRequestCharge, CancellationToken cancellationToken = default)
     {
         if (initiatorId == Guid.Empty)
             return false;
@@ -463,12 +507,14 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             }
             catch (CosmosException ex)
             {
+                onRequestCharge(ex.RequestCharge);
                 EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
                 throw;
             }
 
             using (response)
             {
+                onRequestCharge(response.Headers.RequestCharge);
                 EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(response);
 
                 if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
@@ -487,7 +533,6 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
                         { TracingAttributeNames.InitiatorId, initiatorId.ToString() },
                         { CosmosDbTracingAttributeNames.EventDatabaseWriteIdempotencyCheckResult, checkResult.ToString().ToLower() },
                     });
-
                 return checkResult;
             }
         }
@@ -503,9 +548,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         }
         catch (CosmosException ex)
         {
+            onRequestCharge(ex.RequestCharge);
             EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
             throw;
         }
+
         var fallbackCheckResult = page.Any();
 
         activity?.RecordEventDatabaseWriteAttemptActivityAdditionalDbOperationEvent(
@@ -517,6 +564,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
                 { TracingAttributeNames.InitiatorId, initiatorId.ToString() },
                 { CosmosDbTracingAttributeNames.EventDatabaseWriteIdempotencyCheckResult, fallbackCheckResult.ToString().ToLower() },
             });
+        onRequestCharge(page.RequestCharge);
 
         return fallbackCheckResult;
     }
@@ -609,6 +657,21 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
     private Container GetContainer<TAggregate>()
     {
         return _cosmosDbProvider.GetAggregateContainer<TAggregate>();
+    }
+
+    private static EventDatabaseOperationRequestChargeMetricContext CreateReadEventDatabaseOperationRequestChargeMetricContext<TAggregate>(Container container)
+    {
+        return new EventDatabaseOperationRequestChargeMetricContext("read", "read", typeof(TAggregate), container.Id, null);
+    }
+
+    private static EventDatabaseOperationRequestChargeMetricContext CreateReadRecordsEventDatabaseOperationRequestChargeMetricContext<TAggregate>(Container container)
+    {
+        return new EventDatabaseOperationRequestChargeMetricContext("read", "read_records", typeof(TAggregate), container.Id, null);
+    }
+
+    private static EventDatabaseOperationRequestChargeMetricContext CreateWriteEventDatabaseOperationRequestChargeMetricContext<TAggregate>(Container container, IDictionary<string, string> customProperties)
+    {
+        return new EventDatabaseOperationRequestChargeMetricContext("write", "write", typeof(TAggregate), container.Id, customProperties);
     }
 
     private EventsPacketDocument.Event CreateStreamEventsPacketDocumentEvent(Guid initiatorId, AggregateVersion retrievedVersion, int eventIndex, object eventData)

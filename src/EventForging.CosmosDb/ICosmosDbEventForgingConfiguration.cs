@@ -39,6 +39,7 @@ public interface ICosmosDbEventForgingConfiguration
 
     void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime);
     void AddEventsSubscription(string subscriptionName, string databaseName, string eventsContainerName, string changeFeedName, DateTime? startTime, TimeSpan? pollInterval);
+    void ConfigureEventDatabaseOperationRequestChargeMetric(Action<ICosmosDbEventDatabaseOperationRequestChargeMetricConfiguration> configure);
 
     /// <summary>Allows to set custom stream id factory.</summary>
     /// <param name="streamIdFactory">The custom stream id factory.</param>

@@ -119,7 +119,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
 
     private Task HandleErrorAsync(string subscriptionName, string leaseToken, Exception exception)
     {
-        if (exception is CosmosException { StatusCode: HttpStatusCode.TooManyRequests })
+        if (exception is CosmosException { StatusCode: (HttpStatusCode)429 })
         {
             _logger.ChangeFeedProcessorThrottled(exception, subscriptionName, leaseToken);
         }
