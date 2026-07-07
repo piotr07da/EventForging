@@ -17,6 +17,7 @@ namespace EventForging.CosmosDb;
 internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventDatabase
 {
     private const int MaxNumberOfUnpackedEventsInTransaction = 99;
+    private const int MaxNumberOfOperationsInDeletedDocumentsBatch = 100;
 
     private readonly ICosmosDbProvider _cosmosDbProvider;
     private readonly IStreamIdFactory _streamIdFactory;
@@ -164,11 +165,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
                 await DeleteStreamDocumentPermanentlyAsync(container, streamId, headerDocumentId, cancellationToken);
             }
 
-            var eventDocumentIds = await ReadEventAndPacketDocumentIdsAsync(container, streamId, true, cancellationToken);
-            foreach (var eventDocumentId in eventDocumentIds)
-            {
-                await MarkStreamDocumentAsDeletedAsync(container, streamId, eventDocumentId, cancellationToken);
-            }
+            await MarkEventAndPacketDocumentsAsDeletedAsync(container, streamId, cancellationToken);
 
             return;
         }
@@ -574,11 +571,6 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         return await ReadDocumentIdsByConditionAsync(container, streamId, $"c.documentType = '{DocumentType.Header}'", cancellationToken);
     }
 
-    private static async Task<IReadOnlyList<string>> ReadEventAndPacketDocumentIdsAsync(Container container, string streamId, bool onlyNotDeleted, CancellationToken cancellationToken)
-    {
-        return await ReadStreamDocumentIdsAsync(container, streamId, false, onlyNotDeleted, cancellationToken);
-    }
-
     private static async Task<IReadOnlyList<string>> ReadStreamDocumentIdsAsync(Container container, string streamId, bool includeHeader, bool onlyNotDeleted, CancellationToken cancellationToken)
     {
         var notDeletedCondition = onlyNotDeleted ? " AND (NOT IS_DEFINED(c.isDeleted) OR c.isDeleted != true)" : string.Empty;
@@ -624,22 +616,93 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         return documentIds;
     }
 
-    private static async Task MarkStreamDocumentAsDeletedAsync(Container container, string streamId, string documentId, CancellationToken cancellationToken)
+    private async Task MarkEventAndPacketDocumentsAsDeletedAsync(Container container, string streamId, CancellationToken cancellationToken)
     {
-        try
+        var requestOptions = new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, };
+        var batch = container.CreateTransactionalBatch(new PartitionKey(streamId));
+        var operationCount = 0;
+
+        await foreach (var document in ReadEventAndEventsPacketDocumentsAsync(container, streamId, cancellationToken))
         {
-            await container.PatchItemAsync<object>(
-                documentId,
-                new PartitionKey(streamId),
-                new[] { PatchOperation.Set("/isDeleted", true), },
-                cancellationToken: cancellationToken);
+            AddMarkStreamDocumentAsDeletedOperations(batch, document, requestOptions, ref operationCount);
+
+            if (operationCount == MaxNumberOfOperationsInDeletedDocumentsBatch)
+            {
+                await ExecuteDeletedDocumentsBatchAsync(batch, cancellationToken);
+                batch = container.CreateTransactionalBatch(new PartitionKey(streamId));
+                operationCount = 0;
+            }
         }
-        catch (CosmosException ex)
+
+        if (operationCount > 0)
         {
-            EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(ex);
-            throw;
+            await ExecuteDeletedDocumentsBatchAsync(batch, cancellationToken);
         }
     }
+
+    private async IAsyncEnumerable<IDocument> ReadEventAndEventsPacketDocumentsAsync(Container container, string streamId, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var query = new QueryDefinition($"SELECT * FROM c WHERE (c.documentType = '{DocumentType.Event}' OR c.documentType = '{DocumentType.EventsPacket}') AND (NOT IS_DEFINED(c.isDeleted) OR c.isDeleted != true)");
+        var iterator = container.IterateAsync(
+            query,
+            new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, },
+            _serializerOptionsProvider.Get(),
+            _ => { },
+            cancellationToken);
+
+        await foreach (var item in iterator)
+        {
+            if (item.TryHandleAs<EventDocument>(nameof(DocumentType.Event), out var eventDocument))
+            {
+                yield return eventDocument;
+            }
+
+            if (item.TryHandleAs<EventsPacketDocument>(nameof(DocumentType.EventsPacket), out var eventsPacketDocument))
+            {
+                yield return eventsPacketDocument;
+            }
+        }
+    }
+
+    private static void AddMarkStreamDocumentAsDeletedOperations(TransactionalBatch batch, IDocument document, TransactionalBatchItemRequestOptions requestOptions, ref int operationCount)
+    {
+        switch (document)
+        {
+            case EventDocument eventDocument:
+                AddMarkDocumentAsDeletedOperations(batch, eventDocument, requestOptions, ref operationCount);
+                return;
+            case EventsPacketDocument eventsPacketDocument:
+                AddMarkDocumentAsDeletedOperations(batch, eventsPacketDocument, requestOptions, ref operationCount);
+                return;
+            default:
+                throw new EventForgingException($"Cannot mark stream document '{document.Id}' as deleted because document type '{document.DocumentType}' is not supported.");
+        }
+    }
+
+    private static void AddMarkDocumentAsDeletedOperations<TDocument>(TransactionalBatch batch, TDocument document, TransactionalBatchItemRequestOptions requestOptions, ref int operationCount)
+        where TDocument : IDocument
+    {
+        var originalDocumentId = document.Id!;
+        document.Id = CreateDeletedDocumentId(originalDocumentId);
+        document.IsDeleted = true;
+
+        batch.CreateItem(document, requestOptions);
+        batch.DeleteItem(originalDocumentId, requestOptions);
+        operationCount += 2;
+    }
+
+    private static async Task ExecuteDeletedDocumentsBatchAsync(TransactionalBatch batch, CancellationToken cancellationToken)
+    {
+        using var response = await batch.ExecuteAsync(cancellationToken);
+        EventForgingCosmosDbTooManyRequestsException.ThrowIfTooManyRequests(response);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new EventForgingException(response.ErrorMessage);
+        }
+    }
+
+    private static string CreateDeletedDocumentId(string documentId) => $"{documentId}-D-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
 
     private static async Task DeleteStreamDocumentPermanentlyAsync(Container container, string streamId, string documentId, CancellationToken cancellationToken)
     {
