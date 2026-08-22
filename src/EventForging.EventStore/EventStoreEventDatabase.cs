@@ -32,19 +32,28 @@ internal sealed class EventStoreEventDatabase : IEventDatabase
 
     private JsonSerializerOptions JsonSerializerOptions => _serializerOptionsProvider.Get();
 
-    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default) =>
+        ReadAsync<TAggregate>(aggregateId, EventStreamReadPosition.Beginning, cancellationToken);
+
+    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var records = ReadRecordsAsync<TAggregate>(aggregateId, cancellationToken);
+        var records = ReadRecordsFromPositionAsync<TAggregate>(aggregateId, readPosition, cancellationToken);
         await foreach (var record in records)
         {
             yield return record.EventData;
         }
     }
 
-    public async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default) =>
+        ReadRecordsFromPositionAsync<TAggregate>(aggregateId, EventStreamReadPosition.Beginning, cancellationToken);
+
+    private async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsFromPositionAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
-        await foreach (var re in _client.ReadStreamAsync(Direction.Forwards, streamId, StreamPosition.Start, cancellationToken: cancellationToken))
+        var startPosition = readPosition.TryGetAfterVersion(out var afterVersion)
+            ? StreamPosition.FromInt64(afterVersion.Next().Value)
+            : StreamPosition.Start;
+        await foreach (var re in _client.ReadStreamAsync(Direction.Forwards, streamId, startPosition, cancellationToken: cancellationToken))
         {
             var ed = _eventSerializer.DeserializeFromBytes(re.Event.EventType, re.Event.Data.ToArray());
             var eventMetadataJson = Encoding.UTF8.GetString(re.Event.Metadata.ToArray());

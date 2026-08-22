@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>netstandard2.0;netstandard2.1;net8.0;net10.0</TargetFrameworks>
+        <Description>Redis implementation of the EventForging event stream cache; $(Description)</Description>
+        <PackageTags>$(PackageTags); cache; redis;</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'netstandard2.1'">
+        <PackageReference Include="System.Text.Json" Version="8.0.6"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="StackExchange.Redis" Version="3.1.3"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\EventForging\EventForging.csproj"/>
+    </ItemGroup>
+
+</Project>

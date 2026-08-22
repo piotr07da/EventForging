@@ -72,6 +72,12 @@ public class EventStoreEventDatabase_tests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task when_reading_after_version_then_only_newer_events_are_returned()
+    {
+        await _fixture.when_reading_after_version_then_only_newer_events_are_returned();
+    }
+
+    [Fact]
     public async Task when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once()
     {
         await _fixture.when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using EventForging.Caching;
 using EventForging.Diagnostics.Tracing;
 
 namespace EventForging;
@@ -7,15 +8,21 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
     where TAggregate : class, IEventForged
 {
     private readonly IEventDatabase _database;
+    private readonly EventStreamCacheSessionFactory _eventStreamCacheSessionFactory;
+    private readonly EventStreamCacheInvalidator _eventStreamCacheInvalidator;
     private readonly IRepositorySaveInterceptor[] _genericSaveInterceptors;
     private readonly IRepositorySaveInterceptor<TAggregate>[] _specificSaveInterceptors;
 
     public Repository(
         IEventDatabase database,
+        EventStreamCacheSessionFactory eventStreamCacheSessionFactory,
+        EventStreamCacheInvalidator eventStreamCacheInvalidator,
         IEnumerable<IRepositorySaveInterceptor> genericSaveInterceptors,
         IEnumerable<IRepositorySaveInterceptor<TAggregate>> specificSaveInterceptors)
     {
         _database = database ?? throw new ArgumentNullException(nameof(database));
+        _eventStreamCacheSessionFactory = eventStreamCacheSessionFactory ?? throw new ArgumentNullException(nameof(eventStreamCacheSessionFactory));
+        _eventStreamCacheInvalidator = eventStreamCacheInvalidator ?? throw new ArgumentNullException(nameof(eventStreamCacheInvalidator));
         _genericSaveInterceptors = genericSaveInterceptors?.ToArray() ?? Array.Empty<IRepositorySaveInterceptor>();
         _specificSaveInterceptors = specificSaveInterceptors?.ToArray() ?? Array.Empty<IRepositorySaveInterceptor<TAggregate>>();
     }
@@ -94,25 +101,78 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
 
     private async Task<TAggregate?> InternalTryGetAsync(string aggregateId, Activity? activity, CancellationToken cancellationToken = default)
     {
+        var eventStreamCacheReadSession = await _eventStreamCacheSessionFactory
+            .TryCreateReadSessionAsync<TAggregate>(aggregateId, cancellationToken)
+            .ConfigureAwait(false);
+
+        try
+        {
+            try
+            {
+                return await ReadAggregateAsync(aggregateId, eventStreamCacheReadSession, activity, cancellationToken).ConfigureAwait(false);
+            }
+            catch (EventStreamCacheReadException)
+            {
+                return await ReadAggregateAsync(aggregateId, null, activity, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (AggregateNotFoundEventForgingException) when (eventStreamCacheReadSession is not null)
+        {
+            await _eventStreamCacheInvalidator.InvalidateAsync<TAggregate>(aggregateId, cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+    }
+
+    private async Task<TAggregate?> ReadAggregateAsync(string aggregateId, IEventStreamCacheReadSession? eventStreamCacheReadSession, Activity? activity, CancellationToken cancellationToken)
+    {
         var aggregate = AggregateProxyGenerator.Create<TAggregate>();
         var eventApplier = EventApplier.CreateFor(aggregate);
-
-        var events = _database.ReadAsync<TAggregate>(aggregateId, cancellationToken).ConfigureAwait(false);
-
-        var eventCount = 0;
-
-        await foreach (var e in events)
+        if (eventStreamCacheReadSession is not null)
         {
-            eventApplier.ApplyEvent(e, false);
-            ++eventCount;
+            await foreach (var e in eventStreamCacheReadSession.GetEventsAsync(cancellationToken).ConfigureAwait(false))
+            {
+                eventApplier.ApplyEvent(e, false);
+            }
         }
 
-        if (eventCount == 0)
+        var readPosition = eventStreamCacheReadSession is null
+            ? EventStreamReadPosition.Beginning
+            : EventStreamReadPosition.After(eventStreamCacheReadSession.Version);
+        var databaseEvents = _database.ReadAsync<TAggregate>(aggregateId, readPosition, cancellationToken);
+        var retrievedVersion = eventStreamCacheReadSession?.Version ?? AggregateVersion.NotExistingAggregate;
+        var hasDatabaseEvents = false;
+        IEventStreamCacheWriteSession? cacheWriteSession = null;
+        await foreach (var e in databaseEvents.ConfigureAwait(false))
+        {
+            eventApplier.ApplyEvent(e, false);
+            retrievedVersion = retrievedVersion.Next();
+            if (!hasDatabaseEvents)
+            {
+                hasDatabaseEvents = true;
+                cacheWriteSession = await _eventStreamCacheSessionFactory.TryCreateWriteSessionAsync<TAggregate>(aggregateId, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (cacheWriteSession is not null)
+            {
+                await cacheWriteSession.AppendAsync(e, retrievedVersion, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        if (cacheWriteSession is not null)
+        {
+            await cacheWriteSession.CompleteAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        if (retrievedVersion.AggregateDoesNotExist)
         {
             return null;
         }
 
-        var retrievedVersion = AggregateVersion.FromValue(eventCount - 1);
+        return CompleteAggregateRehydration(aggregate, retrievedVersion, activity);
+    }
+
+    private static TAggregate CompleteAggregateRehydration(TAggregate aggregate, AggregateVersion retrievedVersion, Activity? activity)
+    {
         aggregate.ConfigureAggregateMetadata(md => md.RetrievedVersion = retrievedVersion);
 
         activity.EnrichRepositoryGetActivityWithAggregateVersion(retrievedVersion);

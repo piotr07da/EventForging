@@ -48,6 +48,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.MongoDb", "src
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.MongoDb.Tests", "tests\EventForging.MongoDb.Tests\EventForging.MongoDb.Tests.csproj", "{77BE8B87-5AF9-4428-80BA-3869F762B8DA}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.Caching.Memory", "src\EventForging.Caching.Memory\EventForging.Caching.Memory.csproj", "{0C493255-3FA6-4660-A505-249F6C5CFCDB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.Caching.Redis", "src\EventForging.Caching.Redis\EventForging.Caching.Redis.csproj", "{6049310A-8183-4B17-ADEA-A61FA59C7FC1}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventForging.Caching.Redis.Tests", "tests\EventForging.Caching.Redis.Tests\EventForging.Caching.Redis.Tests.csproj", "{68B5C889-1E2C-4C49-85A5-34C244F1CFC4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -102,6 +108,18 @@ Global
 		{77BE8B87-5AF9-4428-80BA-3869F762B8DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{77BE8B87-5AF9-4428-80BA-3869F762B8DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{77BE8B87-5AF9-4428-80BA-3869F762B8DA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C493255-3FA6-4660-A505-249F6C5CFCDB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C493255-3FA6-4660-A505-249F6C5CFCDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C493255-3FA6-4660-A505-249F6C5CFCDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C493255-3FA6-4660-A505-249F6C5CFCDB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6049310A-8183-4B17-ADEA-A61FA59C7FC1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6049310A-8183-4B17-ADEA-A61FA59C7FC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6049310A-8183-4B17-ADEA-A61FA59C7FC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6049310A-8183-4B17-ADEA-A61FA59C7FC1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68B5C889-1E2C-4C49-85A5-34C244F1CFC4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68B5C889-1E2C-4C49-85A5-34C244F1CFC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68B5C889-1E2C-4C49-85A5-34C244F1CFC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68B5C889-1E2C-4C49-85A5-34C244F1CFC4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

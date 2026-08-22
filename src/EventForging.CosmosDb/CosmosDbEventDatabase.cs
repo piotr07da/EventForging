@@ -47,13 +47,16 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
 
     private IReadOnlyCollection<string> EventDatabaseOperationRequestChargeMetricCustomPropertyTagNames => ((CosmosDbEventForgingConfiguration)_cosmosConfiguration).EventDatabaseOperationRequestChargeMetricCustomPropertyTagNames;
 
-    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default) =>
+        ReadAsync<TAggregate>(aggregateId, EventStreamReadPosition.Beginning, cancellationToken);
+
+    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var activity = ActivitySourceProvider.ActivitySource.StartEventDatabaseReadActivity();
         var container = GetContainer<TAggregate>();
         var metricContext = CreateReadEventDatabaseOperationRequestChargeMetricContext<TAggregate>(container);
 
-        var records = InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(aggregateId, container, activity, metricContext, cancellationToken);
+        var records = InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(aggregateId, readPosition, container, activity, metricContext, cancellationToken);
         await foreach (var record in records)
         {
             yield return record.EventData;
@@ -66,7 +69,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         var container = GetContainer<TAggregate>();
         var metricContext = CreateReadRecordsEventDatabaseOperationRequestChargeMetricContext<TAggregate>(container);
 
-        var records = InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(aggregateId, container, activity, metricContext, cancellationToken);
+        var records = InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(aggregateId, EventStreamReadPosition.Beginning, container, activity, metricContext, cancellationToken);
         await foreach (var record in records)
         {
             yield return record;
@@ -184,11 +187,11 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         throw new EventForgingException($"Unknown events deletion mode: {deletionMode}.");
     }
 
-    private IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(string aggregateId, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, CancellationToken cancellationToken = default)
+    private IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, CancellationToken cancellationToken = default)
     {
         try
         {
-            var records = InternalReadRecordsAsync<TAggregate>(aggregateId, container, activity, metricContext, cancellationToken);
+            var records = InternalReadRecordsAsync<TAggregate>(aggregateId, readPosition, container, activity, metricContext, cancellationToken);
 
             return records.WithExceptionIntercept(
                 ex =>
@@ -209,7 +212,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         }
     }
 
-    private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsAsync<TAggregate>(string aggregateId, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(aggregateId)) throw new ArgumentException(nameof(aggregateId));
 
@@ -219,9 +222,14 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
 
         var pageCount = 0;
         var totalRequestCharge = 0.0;
+        var readsAfterVersion = readPosition.TryGetAfterVersion(out var afterVersion);
+        var queryDefinition = readsAfterVersion
+            ? new QueryDefinition("SELECT * FROM x WHERE x.eventNumber > @afterVersion ORDER BY x.eventNumber")
+                .WithParameter("@afterVersion", afterVersion.Value)
+            : new QueryDefinition("SELECT * FROM x WHERE x.eventNumber >= 0 ORDER BY x.eventNumber");
 
         var iterator = container.IterateAsync(
-            new QueryDefinition("SELECT * FROM x ORDER BY x.eventNumber"),
+            queryDefinition,
             new QueryRequestOptions { PartitionKey = new PartitionKey(streamId), MaxItemCount = -1, },
             _serializerOptionsProvider.Get(),
             pageResponseMessage =>
@@ -360,7 +368,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
                     for (var eIx = 0; eIx < events.Count; ++eIx)
                     {
                         var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-                        var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, events[eIx], conversationId, initiatorId, customProperties);
+                        var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion.Next().Value + eIx, events[eIx], conversationId, initiatorId, customProperties);
                         transaction.CreateItem(eventDocument, requestOptions);
                     }
                 }
@@ -373,7 +381,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
                         if (ep.Count == 1)
                         {
                             var eventId = _configuration.IdempotencyEnabled ? IdempotentEventIdGenerator.GenerateIdempotentEventId(initiatorId, eIx) : Guid.NewGuid();
-                            var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion + eIx + 1L, ep[0], conversationId, initiatorId, customProperties);
+                            var eventDocument = CreateStreamEventDocument(streamId, eventId, retrievedVersion.Next().Value + eIx, ep[0], conversationId, initiatorId, customProperties);
                             transaction.CreateItem(eventDocument, requestOptions);
                             ++eIx;
                         }
@@ -743,7 +751,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         var eventDataAsJsonElement = _eventSerializer.SerializeToJsonElement(eventData, out var eventName);
         var eventsPacketEvent = new EventsPacketDocument.Event(
             eventId,
-            retrievedVersion + eventIndex + 1L,
+            retrievedVersion.Next().Value + eventIndex,
             eventName,
             eventDataAsJsonElement);
         return eventsPacketEvent;

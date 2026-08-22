@@ -13,6 +13,7 @@ EventForging is MIT licensed.
 - InMemory database
 - EventStore database integration
 - CosmosDb database integration
+- Event stream caching with memory and Redis implementations
 - Opened for integration with other databases
 - Per command idempotency - ensures that the same command does not get processed more than once
 - Stores conversationId, messageId, and initiatorId for tracking and debugging purposes
@@ -168,6 +169,61 @@ Please see the [Configuration](#configuration) section.
 Intentionally, there is no built-in mechanism for dealing with exceptions.
 By default, messages will be retried forever in case of an exception.
 Therefore it is important to catch exceptions and avoid `HandleAsync` failing.
+
+## Event stream cache
+
+EventForging can cache events that have already been read from the database. When the aggregate is read again, cached
+events are used and only events added later are loaded from the database. Without a registered cache provider, all events
+are loaded from the database on every read.
+
+### Common behavior
+
+The cache is updated only after all events returned by the database have been read successfully. If the cache fails, the
+aggregate is loaded entirely from the database. Event streams are append-only. A cached entry can be removed explicitly
+through `IEventStreamCacheInvalidator.InvalidateAsync<TAggregate>`.
+
+Cache metrics are available through `EventForgingDiagnosticsInfo.MeterName`; memory-provider size and removal metrics use
+`EventForgingMemoryEventStreamCacheDiagnosticsInfo.MeterName`. Metrics are tagged with `ef.aggregate.type`.
+
+### Memory
+
+```csharp
+services.AddEventForging(r =>
+{
+    r.UseMemoryEventStreamCache(c =>
+    {
+        c.MinimumEventCount = 3000;
+        c.SlidingExpiration = TimeSpan.FromSeconds(60);
+        c.MaximumCachedStreamCount = 1000;
+        c.MaximumTotalCachedEventCount = 200_000;
+    });
+});
+```
+
+The `EventForging.Caching.Memory` provider applies its stream and event limits across all aggregate types and removes the
+least recently used streams when a limit is exceeded. A stream larger than `MaximumTotalCachedEventCount` is not cached.
+
+### Redis
+
+Use `EventForging.Caching.Redis` when the cache must be shared by multiple application instances. Replace the memory
+provider registration with:
+
+```csharp
+r.UseRedisEventStreamCache(c =>
+{
+    c.MinimumEventCount = 3000;
+    c.SlidingExpiration = TimeSpan.FromSeconds(60);
+    c.ConnectionString = "localhost:6379";
+    c.KeyPrefix = "my-application:event-stream-cache:";
+    c.EventsPerChunk = 1000;
+    c.CompressionEnabled = true;
+});
+```
+
+`KeyPrefix` is added before every Redis key and must be unique to the application and environment. An existing
+`IConnectionMultiplexer` can be registered instead of a connection string. Redis stores events in groups of
+`EventsPerChunk` and compresses them by default. Event type name mappers must be configured because the events are
+serialized.
 
 ## Configuration <a name="configuration"></a>
 

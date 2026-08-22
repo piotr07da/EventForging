@@ -1,5 +1,6 @@
 ﻿namespace EventForging;
 
+/// <summary>Defines the stream-version condition checked when events are appended.</summary>
 public readonly struct ExpectedVersion
 {
     private ExpectedVersion(long value)
@@ -25,8 +26,13 @@ public readonly struct ExpectedVersion
 
     public override int GetHashCode() => Value.GetHashCode();
 
+    /// <summary>Requires the event stream not to exist.</summary>
     public static ExpectedVersion None { get; } = new(-1);
+
+    /// <summary>Disables stream-version validation.</summary>
     public static ExpectedVersion Any { get; } = new(-2);
+
+    /// <summary>Requires the stream version to match the version observed when the aggregate was retrieved.</summary>
     public static ExpectedVersion Retrieved { get; } = new(-3);
 
     public static bool operator ==(ExpectedVersion lhs, ExpectedVersion rhs) => lhs.Value == rhs.Value;

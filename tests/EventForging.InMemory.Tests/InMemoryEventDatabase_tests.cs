@@ -77,6 +77,14 @@ public class InMemoryEventDatabase_tests : IAsyncLifetime
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
+    public async Task when_reading_after_version_then_only_newer_events_are_returned(bool serializationEnabled)
+    {
+        await Fixture(serializationEnabled).when_reading_after_version_then_only_newer_events_are_returned();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
     public async Task when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once(bool serializationEnabled)
     {
         await Fixture(serializationEnabled).when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once();

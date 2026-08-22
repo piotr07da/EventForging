@@ -1,5 +1,6 @@
 ﻿namespace EventForging;
 
+/// <summary>Loads and saves event-sourced aggregates.</summary>
 public interface IRepository<TAggregate>
 {
     /// <summary>Gets the aggregate from the repository.</summary>

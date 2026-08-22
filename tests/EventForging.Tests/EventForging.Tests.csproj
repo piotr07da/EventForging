@@ -17,6 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\src\EventForging.Caching.Memory\EventForging.Caching.Memory.csproj"/>
         <ProjectReference Include="..\..\src\EventForging.InMemory\EventForging.InMemory.csproj"/>
         <ProjectReference Include="..\..\src\EventForging\EventForging.csproj"/>
     </ItemGroup>

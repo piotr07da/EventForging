@@ -26,21 +26,30 @@ internal sealed class InMemoryEventDatabase : IEventDatabase
         _subscriptions = subscriptions ?? throw new ArgumentNullException(nameof(subscriptions));
     }
 
-    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default) =>
+        ReadAsync<TAggregate>(aggregateId, EventStreamReadPosition.Beginning, cancellationToken);
+
+    public async IAsyncEnumerable<object> ReadAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var records = ReadRecordsAsync<TAggregate>(aggregateId, cancellationToken);
+        var records = ReadRecordsFromPositionAsync<TAggregate>(aggregateId, readPosition, cancellationToken);
         await foreach (var record in records)
         {
             yield return record.EventData;
         }
     }
 
-    public async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<EventDatabaseRecord> ReadRecordsAsync<TAggregate>(string aggregateId, CancellationToken cancellationToken = default) =>
+        ReadRecordsFromPositionAsync<TAggregate>(aggregateId, EventStreamReadPosition.Beginning, cancellationToken);
+
+    private async IAsyncEnumerable<EventDatabaseRecord> ReadRecordsFromPositionAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var streamId = _streamIdFactory.Create(typeof(TAggregate), aggregateId);
         _streams.TryGetValue(streamId, out var eventEntries);
         eventEntries ??= new Dictionary<Guid, EventEntry>();
-        foreach (var entry in eventEntries.Values.OrderBy(e => e.Version))
+        var firstEventNumber = readPosition.TryGetAfterVersion(out var afterVersion)
+            ? afterVersion.Next().Value
+            : 0L;
+        foreach (var entry in eventEntries.Values.Where(e => e.Version >= firstEventNumber).OrderBy(e => e.Version))
         {
             object eData;
 

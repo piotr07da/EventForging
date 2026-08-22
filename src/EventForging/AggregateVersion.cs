@@ -27,6 +27,9 @@ public readonly struct AggregateVersion
 
     public static AggregateVersion NotExistingAggregate { get; } = new(NotExistingAggregateValue);
 
+    /// <summary>Returns the version immediately following this version.</summary>
+    public AggregateVersion Next() => FromValue(Value + 1L);
+
     public static bool operator ==(AggregateVersion lhs, AggregateVersion rhs) => lhs.Value == rhs.Value;
 
     public static bool operator !=(AggregateVersion lhs, AggregateVersion rhs) => !(lhs == rhs);

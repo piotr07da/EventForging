@@ -82,6 +82,16 @@ public class CosmosDbEventDatabase_tests : IAsyncLifetime
     }
 
     [Theory]
+    [InlineData(EventPackingMode.Disabled)]
+    [InlineData(EventPackingMode.UniformDistributionFilling)]
+    [InlineData(EventPackingMode.AllEventsInOnePacket)]
+    public async Task when_reading_after_version_then_only_newer_events_are_returned(EventPackingMode eventPacking)
+    {
+        await InitFixtureAsync(eventPacking);
+        await Fixture.when_reading_after_version_then_only_newer_events_are_returned();
+    }
+
+    [Theory]
     [InlineData(EventPackingMode.UniformDistributionFilling)]
     [InlineData(EventPackingMode.AllEventsInOnePacket)]
     public async Task when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once(EventPackingMode eventPacking)

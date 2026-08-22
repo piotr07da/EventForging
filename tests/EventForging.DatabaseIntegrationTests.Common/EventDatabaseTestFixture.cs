@@ -61,6 +61,27 @@ public sealed class EventDatabaseTestFixture
         Assert.True(userAfterSave.Approved);
     }
 
+    public async Task when_reading_after_version_then_only_newer_events_are_returned([CallerMemberName] string callerMethod = "")
+    {
+        Assert.Equal(nameof(when_reading_after_version_then_only_newer_events_are_returned), callerMethod);
+
+        var userId = Guid.NewGuid();
+        var existingUser = User.RegisterWithName(userId, Guid.NewGuid().ToString(), 3);
+        await _repository.SaveAsync(userId, existingUser, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
+
+        var retrievedUser = await _repository.GetAsync(userId);
+        retrievedUser.Approve();
+        await _repository.SaveAsync(userId, retrievedUser, ExpectedVersion.Retrieved, Guid.Empty, Guid.NewGuid());
+
+        var events = new List<object>();
+        await foreach (var e in _eventDatabase.ReadAsync<User>(userId.ToString(), EventStreamReadPosition.After(4)))
+        {
+            events.Add(e);
+        }
+
+        Assert.IsType<UserApproved>(Assert.Single(events));
+    }
+
     public async Task when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once([CallerMemberName] string callerMethod = "")
     {
         Assert.Equal(nameof(when_new_aggregate_saved_twice_with_the_same_initiator_id_then_its_events_written_to_the_database_only_once), callerMethod);
