@@ -6,7 +6,6 @@ using EventForging.CosmosDb.Diagnostics.Metrics;
 using EventForging.CosmosDb.Diagnostics.Tracing;
 using EventForging.Diagnostics.Logging;
 using EventForging.Diagnostics.Tracing;
-using EventForging.EnumerationExtensions;
 using EventForging.Idempotency;
 using EventForging.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -56,7 +55,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         var container = GetContainer<TAggregate>();
         var metricContext = CreateReadEventDatabaseOperationRequestChargeMetricContext<TAggregate>(container);
 
-        var records = InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(aggregateId, readPosition, container, activity, metricContext, cancellationToken);
+        var records = InternalReadRecordsWithTracingAsync<TAggregate>(aggregateId, readPosition, container, activity, metricContext, cancellationToken);
         await foreach (var record in records)
         {
             yield return record.EventData;
@@ -69,7 +68,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         var container = GetContainer<TAggregate>();
         var metricContext = CreateReadRecordsEventDatabaseOperationRequestChargeMetricContext<TAggregate>(container);
 
-        var records = InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(aggregateId, EventStreamReadPosition.Beginning, container, activity, metricContext, cancellationToken);
+        var records = InternalReadRecordsWithTracingAsync<TAggregate>(aggregateId, EventStreamReadPosition.Beginning, container, activity, metricContext, cancellationToken);
         await foreach (var record in records)
         {
             yield return record;
@@ -187,27 +186,31 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         throw new EventForgingException($"Unknown events deletion mode: {deletionMode}.");
     }
 
-    private IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsWithExceptionInterceptAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, CancellationToken cancellationToken = default)
+    private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsWithTracingAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         try
         {
-            var records = InternalReadRecordsAsync<TAggregate>(aggregateId, readPosition, container, activity, metricContext, cancellationToken);
+            await using var records = InternalReadRecordsAsync<TAggregate>(aggregateId, readPosition, container, activity, metricContext, cancellationToken).GetAsyncEnumerator(cancellationToken);
+            while (await MoveNextAsync(records, activity).ConfigureAwait(false))
+            {
+                yield return records.Current;
+            }
+        }
+        finally
+        {
+            activity?.Complete();
+        }
+    }
 
-            return records.WithExceptionIntercept(
-                ex =>
-                {
-                    activity?.RecordException(ex);
-                },
-                () =>
-                {
-                    activity?.Complete();
-                },
-                cancellationToken);
+    private static async Task<bool> MoveNextAsync(IAsyncEnumerator<EventDatabaseRecord> records, Activity? activity)
+    {
+        try
+        {
+            return await records.MoveNextAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             activity?.RecordException(ex);
-            activity?.Complete();
             throw;
         }
     }
