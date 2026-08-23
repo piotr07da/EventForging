@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using EventForging.Diagnostics.Metrics;
 using Microsoft.Extensions.Logging;
 
 namespace EventForging.Caching;
@@ -41,8 +40,6 @@ internal sealed class EventStreamCacheReadSession<TAggregate> : IEventStreamCach
                 typeof(TAggregate).Name);
             throw new EventStreamCacheReadException("The event stream cache returned a number of events inconsistent with its version.");
         }
-
-        EventStreamCacheMetrics.RecordEventsServed(typeof(TAggregate), eventCount);
     }
 
     private async Task<bool> MoveNextAsync(

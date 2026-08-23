@@ -231,9 +231,11 @@ public class EventStreamCache_tests
         using var meterListener = new MeterListener();
         meterListener.InstrumentPublished = (instrument, listener) =>
         {
-            if ((instrument.Meter.Name == EventForgingDiagnosticsInfo.MeterName
-                 || instrument.Meter.Name == EventForgingMemoryEventStreamCacheDiagnosticsInfo.MeterName)
-                && instrument.Name.StartsWith("eventforging.event_stream_cache."))
+            var eventStreamReadMetric = instrument.Meter.Name == EventForgingDiagnosticsInfo.MeterName
+                                        && instrument.Name.StartsWith("eventforging.event_stream.read.");
+            var memoryCacheMetric = instrument.Meter.Name == EventForgingMemoryEventStreamCacheDiagnosticsInfo.MeterName
+                                    && instrument.Name.StartsWith("eventforging.event_stream_cache.");
+            if (eventStreamReadMetric || memoryCacheMetric)
             {
                 listener.EnableMeasurementEvents(instrument);
             }
@@ -264,9 +266,10 @@ public class EventStreamCache_tests
         await repository.GetAsync(cachedStreamId);
         await repository.GetAsync(replacingStreamId);
 
-        Assert.Equal(1L, SumMeasurements(measurements, "eventforging.event_stream_cache.lookup", "ef.cache.lookup.result", "hit"));
-        Assert.Equal(2L, SumMeasurements(measurements, "eventforging.event_stream_cache.lookup", "ef.cache.lookup.result", "miss"));
-        Assert.Equal(2L, SumMeasurements(measurements, "eventforging.event_stream_cache.events_served"));
+        Assert.Equal(1L, SumMeasurements(measurements, "eventforging.event_stream.read.cache.lookups", "ef.cache.lookup.result", "hit"));
+        Assert.Equal(2L, SumMeasurements(measurements, "eventforging.event_stream.read.cache.lookups", "ef.cache.lookup.result", "miss"));
+        Assert.Equal(2L, SumMeasurements(measurements, "eventforging.event_stream.read.events_served", "ef.event_stream.read.source", "cache"));
+        Assert.Equal(3L, SumMeasurements(measurements, "eventforging.event_stream.read.events_served", "ef.event_stream.read.source", "database"));
         Assert.Equal(1L, SumMeasurements(measurements, "eventforging.event_stream_cache.cached_streams"));
         Assert.Equal(1L, SumMeasurements(measurements, "eventforging.event_stream_cache.cached_events"));
         Assert.Equal(1L, SumMeasurements(measurements, "eventforging.event_stream_cache.entry_removal", "ef.cache.entry_removal.reason", "event_count_limit"));

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using EventForging.Caching;
+using EventForging.Diagnostics.Metrics;
 using EventForging.Diagnostics.Tracing;
 
 namespace EventForging;
@@ -127,11 +128,13 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
     {
         var aggregate = AggregateProxyGenerator.Create<TAggregate>();
         var eventApplier = EventApplier.CreateFor(aggregate);
+        var cachedEventCount = 0L;
         if (eventStreamCacheReadSession is not null)
         {
             await foreach (var e in eventStreamCacheReadSession.GetEventsAsync(cancellationToken).ConfigureAwait(false))
             {
                 eventApplier.ApplyEvent(e, false);
+                ++cachedEventCount;
             }
         }
 
@@ -141,11 +144,13 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         var databaseEvents = _database.ReadAsync<TAggregate>(aggregateId, readPosition, cancellationToken);
         var retrievedVersion = eventStreamCacheReadSession?.Version ?? AggregateVersion.NotExistingAggregate;
         var hasDatabaseEvents = false;
+        var databaseEventCount = 0L;
         IEventStreamCacheWriteSession? cacheWriteSession = null;
         await foreach (var e in databaseEvents.ConfigureAwait(false))
         {
             eventApplier.ApplyEvent(e, false);
             retrievedVersion = retrievedVersion.Next();
+            ++databaseEventCount;
             if (!hasDatabaseEvents)
             {
                 hasDatabaseEvents = true;
@@ -168,7 +173,10 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
             return null;
         }
 
-        return CompleteAggregateRehydration(aggregate, retrievedVersion, activity);
+        var rehydratedAggregate = CompleteAggregateRehydration(aggregate, retrievedVersion, activity);
+        EventStreamReadMetrics.RecordEventsServedFromCache(typeof(TAggregate), cachedEventCount);
+        EventStreamReadMetrics.RecordEventsServedFromDatabase(typeof(TAggregate), databaseEventCount);
+        return rehydratedAggregate;
     }
 
     private static TAggregate CompleteAggregateRehydration(TAggregate aggregate, AggregateVersion retrievedVersion, Activity? activity)

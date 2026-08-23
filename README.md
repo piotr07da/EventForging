@@ -183,7 +183,8 @@ aggregate is loaded entirely from the database. Event streams are append-only. A
 through `IEventStreamCacheInvalidator.InvalidateAsync<TAggregate>`.
 
 Cache metrics are available through `EventForgingDiagnosticsInfo.MeterName`; memory-provider size and removal metrics use
-`EventForgingMemoryEventStreamCacheDiagnosticsInfo.MeterName`. Metrics are tagged with `ef.aggregate.type`.
+`EventForgingMemoryEventStreamCacheDiagnosticsInfo.MeterName`. Metrics are tagged with `ef.aggregate.type`; served events
+can be split by `ef.event_stream.read.source`, and cache lookups by `ef.cache.lookup.result`.
 
 ### Memory
 

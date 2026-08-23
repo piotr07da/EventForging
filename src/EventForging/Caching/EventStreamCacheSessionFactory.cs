@@ -33,11 +33,11 @@ internal sealed class EventStreamCacheSessionFactory : IEventStreamCacheSessionF
                 .ConfigureAwait(false);
             if (eventStreamCacheReadSession is null)
             {
-                EventStreamCacheMetrics.RecordLookupMiss(typeof(TAggregate));
+                EventStreamReadMetrics.RecordCacheLookupMiss(typeof(TAggregate));
             }
             else
             {
-                EventStreamCacheMetrics.RecordLookupHit(typeof(TAggregate));
+                EventStreamReadMetrics.RecordCacheLookupHit(typeof(TAggregate));
                 eventStreamCacheReadSession = new EventStreamCacheReadSession<TAggregate>(
                     aggregateId,
                     eventStreamCacheReadSession,
@@ -53,7 +53,7 @@ internal sealed class EventStreamCacheSessionFactory : IEventStreamCacheSessionF
                 "Cannot read aggregate '{AggregateId}' of type '{AggregateType}' from the event stream cache. The aggregate will be read from the event database.",
                 aggregateId,
                 typeof(TAggregate).Name);
-            EventStreamCacheMetrics.RecordLookupMiss(typeof(TAggregate));
+            EventStreamReadMetrics.RecordCacheLookupMiss(typeof(TAggregate));
             return null;
         }
     }
