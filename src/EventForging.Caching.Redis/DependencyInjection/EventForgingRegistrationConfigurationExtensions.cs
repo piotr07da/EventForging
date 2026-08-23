@@ -21,6 +21,7 @@ public static class EventForgingRegistrationConfigurationExtensions
         configurator(configuration);
         configuration.Validate(registeredConnectionMultiplexerCount == 1);
 
+        services.AddSingleton<IEventStreamCacheConfiguration>(configuration);
         services.AddSingleton<IRedisEventStreamCacheConfiguration>(configuration);
         if (registeredConnectionMultiplexerCount == 0)
         {

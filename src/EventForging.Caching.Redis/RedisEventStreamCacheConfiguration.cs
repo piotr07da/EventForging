@@ -2,11 +2,13 @@ namespace EventForging.Caching.Redis;
 
 internal sealed class RedisEventStreamCacheConfiguration : IRedisEventStreamCacheConfiguration
 {
+    internal const double DefaultAggregateCachingRatio = 1d;
     internal const int DefaultMinimumEventCount = 3000;
     internal const string DefaultKeyPrefix = "eventforging:event-stream-cache:";
     internal const int DefaultEventsPerChunk = 1000;
     internal static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromSeconds(60);
 
+    public double AggregateCachingRatio { get; set; } = DefaultAggregateCachingRatio;
     public int MinimumEventCount { get; set; } = DefaultMinimumEventCount;
     public TimeSpan SlidingExpiration { get; set; } = DefaultSlidingExpiration;
     public string ConnectionString { get; set; } = string.Empty;

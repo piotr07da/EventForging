@@ -2,11 +2,13 @@ namespace EventForging.Caching.Memory;
 
 internal sealed class MemoryEventStreamCacheConfiguration : IMemoryEventStreamCacheConfiguration
 {
+    internal const double DefaultAggregateCachingRatio = 1d;
     internal const int DefaultMinimumEventCount = 3000;
     internal const int DefaultMaximumCachedStreamCount = 1000;
     internal const int DefaultMaximumTotalCachedEventCount = 200_000;
     internal static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromSeconds(60);
 
+    public double AggregateCachingRatio { get; set; } = DefaultAggregateCachingRatio;
     public int MinimumEventCount { get; set; } = DefaultMinimumEventCount;
     public TimeSpan SlidingExpiration { get; set; } = DefaultSlidingExpiration;
     public int MaximumCachedStreamCount { get; set; } = DefaultMaximumCachedStreamCount;

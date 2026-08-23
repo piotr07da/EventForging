@@ -7,28 +7,38 @@ namespace EventForging.Caching;
 internal sealed class EventStreamCacheSessionFactory : IEventStreamCacheSessionFactory
 {
     private readonly IEventStreamCacheSessionFactory? _innerSessionFactory;
+    private readonly IEventStreamCacheConfiguration? _configuration;
     private readonly ILogger _logger;
 
     public EventStreamCacheSessionFactory(
         IEnumerable<IEventStreamCacheSessionFactory> eventStreamCacheSessionFactories,
+        IEnumerable<IEventStreamCacheConfiguration> eventStreamCacheConfigurations,
         IEventForgingLoggerProvider loggerProvider)
     {
         _innerSessionFactory = eventStreamCacheSessionFactories.SingleOrDefault();
+        _configuration = eventStreamCacheConfigurations.SingleOrDefault();
         _logger = loggerProvider.Logger;
+
+        var aggregateCachingRatio = _configuration?.AggregateCachingRatio ?? 1d;
+        if (!(aggregateCachingRatio >= 0d && aggregateCachingRatio <= 1d))
+        {
+            throw new EventForgingConfigurationException($"{nameof(IEventStreamCacheConfiguration.AggregateCachingRatio)} must be between zero and one.");
+        }
     }
 
     public async Task<IEventStreamCacheReadSession?> TryCreateReadSessionAsync<TAggregate>(
         string aggregateId,
         CancellationToken cancellationToken = default)
     {
-        if (_innerSessionFactory is null)
+        var innerSessionFactory = _innerSessionFactory;
+        if (innerSessionFactory is null || !IsAggregateEligible(aggregateId))
         {
             return null;
         }
 
         try
         {
-            var eventStreamCacheReadSession = await _innerSessionFactory
+            var eventStreamCacheReadSession = await innerSessionFactory
                 .TryCreateReadSessionAsync<TAggregate>(aggregateId, cancellationToken)
                 .ConfigureAwait(false);
             if (eventStreamCacheReadSession is null)
@@ -62,14 +72,15 @@ internal sealed class EventStreamCacheSessionFactory : IEventStreamCacheSessionF
         string aggregateId,
         CancellationToken cancellationToken = default)
     {
-        if (_innerSessionFactory is null)
+        var innerSessionFactory = _innerSessionFactory;
+        if (innerSessionFactory is null || !IsAggregateEligible(aggregateId))
         {
             return null;
         }
 
         try
         {
-            var eventStreamCacheWriteSession = await _innerSessionFactory
+            var eventStreamCacheWriteSession = await innerSessionFactory
                 .TryCreateWriteSessionAsync<TAggregate>(aggregateId, cancellationToken)
                 .ConfigureAwait(false);
             return eventStreamCacheWriteSession is null
@@ -84,6 +95,14 @@ internal sealed class EventStreamCacheSessionFactory : IEventStreamCacheSessionF
             _logger.LogWarning(ex, "Cannot start caching aggregate '{AggregateId}' of type '{AggregateType}'.", aggregateId, typeof(TAggregate).Name);
             return null;
         }
+    }
+
+    private bool IsAggregateEligible(string aggregateId)
+    {
+        return _configuration is null
+               || EventStreamCacheAggregateEligibility.IsEligible(
+                   aggregateId,
+                   _configuration.AggregateCachingRatio);
     }
 
     private static bool IsRequestedCancellation(Exception exception, CancellationToken cancellationToken)

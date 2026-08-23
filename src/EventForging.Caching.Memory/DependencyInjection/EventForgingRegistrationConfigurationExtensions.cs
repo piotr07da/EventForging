@@ -14,6 +14,7 @@ public static class EventForgingRegistrationConfigurationExtensions
         configurator?.Invoke(configuration);
         configuration.Validate();
 
+        services.AddSingleton<IEventStreamCacheConfiguration>(configuration);
         services.AddSingleton<IMemoryEventStreamCacheConfiguration>(configuration);
         services.AddSingleton<MemoryEventStreamCache>();
         services.AddSingleton<IEventStreamCacheSessionFactory, MemoryEventStreamCacheSessionFactory>();

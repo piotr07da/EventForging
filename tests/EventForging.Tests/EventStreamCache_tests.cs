@@ -20,6 +20,7 @@ public class EventStreamCache_tests
         var (_, _, configuration) = CreateRepository();
         var memoryConfiguration = Assert.IsAssignableFrom<IMemoryEventStreamCacheConfiguration>(configuration);
 
+        Assert.Equal(1d, memoryConfiguration.AggregateCachingRatio);
         Assert.Equal(3000, memoryConfiguration.MinimumEventCount);
         Assert.Equal(TimeSpan.FromSeconds(60), memoryConfiguration.SlidingExpiration);
         Assert.Equal(1000, memoryConfiguration.MaximumCachedStreamCount);
@@ -37,6 +38,55 @@ public class EventStreamCache_tests
         await repository.GetAsync(aggregateId);
 
         Assert.Equal(new AggregateVersion?[] { null, null, }, database.ReadsFor(aggregateId));
+    }
+
+    [Fact]
+    public async Task when_aggregate_caching_ratio_is_zero_then_cache_is_not_used()
+    {
+        var (repository, database, _) = CreateRepository(c =>
+        {
+            c.AggregateCachingRatio = 0d;
+            c.MinimumEventCount = 1;
+        });
+        var aggregateId = Guid.NewGuid().ToString();
+        database.Add(aggregateId, new NumberBeerBrewedEvent(1));
+
+        await repository.GetAsync(aggregateId);
+        await repository.GetAsync(aggregateId);
+
+        Assert.Equal(new AggregateVersion?[] { null, null, }, database.ReadsFor(aggregateId));
+    }
+
+    [Fact]
+    public async Task aggregate_caching_ratio_selects_aggregate_ids_deterministically()
+    {
+        var (repository, database, _) = CreateRepository(c =>
+        {
+            c.AggregateCachingRatio = 0.5d;
+            c.MinimumEventCount = 1;
+        });
+        const string eligibleAggregateId = "cached-aggregate";
+        const string ineligibleAggregateId = "aggregate-a";
+        database.Add(eligibleAggregateId, new NumberBeerBrewedEvent(1));
+        database.Add(ineligibleAggregateId, new NumberBeerBrewedEvent(1));
+
+        await repository.GetAsync(eligibleAggregateId);
+        await repository.GetAsync(eligibleAggregateId);
+        await repository.GetAsync(ineligibleAggregateId);
+        await repository.GetAsync(ineligibleAggregateId);
+
+        Assert.Equal(new AggregateVersion?[] { null, AggregateVersion.FromValue(0), }, database.ReadsFor(eligibleAggregateId));
+        Assert.Equal(new AggregateVersion?[] { null, null, }, database.ReadsFor(ineligibleAggregateId));
+    }
+
+    [Theory]
+    [InlineData(-0.01d)]
+    [InlineData(1.01d)]
+    [InlineData(double.NaN)]
+    public void aggregate_caching_ratio_must_be_between_zero_and_one(double aggregateCachingRatio)
+    {
+        Assert.Throws<EventForgingConfigurationException>(() => CreateRepository(c =>
+            c.AggregateCachingRatio = aggregateCachingRatio));
     }
 
     [Fact]
