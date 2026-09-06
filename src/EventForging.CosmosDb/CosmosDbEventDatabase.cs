@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Net;
 using System.Runtime.CompilerServices;
+using EventForging.Caching;
 using EventForging.CosmosDb.Diagnostics.Logging;
 using EventForging.CosmosDb.Diagnostics.Metrics;
 using EventForging.CosmosDb.Diagnostics.Tracing;
@@ -24,6 +25,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
     private readonly ICosmosDbEventForgingConfiguration _cosmosConfiguration;
     private readonly IEventSerializer _eventSerializer;
     private readonly IJsonSerializerOptionsProvider _serializerOptionsProvider;
+    private readonly IEventStreamCacheInvalidator? _eventStreamCacheInvalidator;
     private readonly ILogger _logger;
 
     public CosmosDbEventDatabase(
@@ -33,6 +35,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         ICosmosDbEventForgingConfiguration cosmosConfiguration,
         IEventSerializer eventSerializer,
         IJsonSerializerOptionsProvider serializerOptionsProvider,
+        IEnumerable<IEventStreamCacheInvalidator> eventStreamCacheInvalidators,
         IEventForgingLoggerProvider loggerProvider)
     {
         _cosmosDbProvider = cosmosDbProvider ?? throw new ArgumentNullException(nameof(cosmosDbProvider));
@@ -41,6 +44,7 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
         _cosmosConfiguration = cosmosConfiguration ?? throw new ArgumentNullException(nameof(cosmosConfiguration));
         _eventSerializer = eventSerializer;
         _serializerOptionsProvider = serializerOptionsProvider ?? throw new ArgumentNullException(nameof(serializerOptionsProvider));
+        _eventStreamCacheInvalidator = eventStreamCacheInvalidators.SingleOrDefault();
         _logger = loggerProvider.Logger;
     }
 
@@ -168,22 +172,24 @@ internal sealed class CosmosDbEventDatabase : IEventDatabase, IDestructiveEventD
             }
 
             await MarkEventAndPacketDocumentsAsDeletedAsync(container, streamId, cancellationToken);
-
-            return;
         }
-
-        if (deletionMode == EventsDeletionMode.DeletePermanently)
+        else if (deletionMode == EventsDeletionMode.DeletePermanently)
         {
             var streamDocumentIds = await ReadStreamDocumentIdsAsync(container, streamId, true, false, cancellationToken);
             foreach (var streamDocumentId in streamDocumentIds)
             {
                 await DeleteStreamDocumentPermanentlyAsync(container, streamId, streamDocumentId, cancellationToken);
             }
-
-            return;
+        }
+        else
+        {
+            throw new EventForgingException($"Unknown events deletion mode: {deletionMode}.");
         }
 
-        throw new EventForgingException($"Unknown events deletion mode: {deletionMode}.");
+        if (_eventStreamCacheInvalidator is not null)
+        {
+            await _eventStreamCacheInvalidator.InvalidateAsync<TAggregate>(aggregateId, cancellationToken);
+        }
     }
 
     private async IAsyncEnumerable<EventDatabaseRecord> InternalReadRecordsWithTracingAsync<TAggregate>(string aggregateId, EventStreamReadPosition readPosition, Container container, Activity? activity, EventDatabaseOperationRequestChargeMetricContext metricContext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
