@@ -26,17 +26,12 @@ internal sealed class EventDispatcher : IEventDispatcher
 
     public async Task DispatchAsync(string subscriptionName, ReceivedEvent receivedEvent, CancellationToken cancellationToken)
     {
-        await DispatchAsync(subscriptionName, new ReceivedEventsBatch(new[] { receivedEvent, }), cancellationToken);
+        await DispatchAsync(subscriptionName, new ReceivedEventsBatch(receivedEvent.EventInfo.StreamId, new[] { receivedEvent, }), cancellationToken);
     }
 
     public async Task DispatchAsync(string subscriptionName, ReceivedEventsBatch receivedEventsBatch, CancellationToken cancellationToken)
     {
         if (subscriptionName is null) throw new ArgumentNullException(nameof(subscriptionName));
-
-        if (receivedEventsBatch.Count == 0)
-        {
-            return;
-        }
 
         await DispatchToEventsBatchHandlersAsync(subscriptionName, receivedEventsBatch, cancellationToken);
 

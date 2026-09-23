@@ -112,7 +112,7 @@ internal sealed class EventsSubscriber : IEventsSubscriber
                 continue;
             }
 
-            var receivedEventsBatch = new ReceivedEventsBatch(batch);
+            var receivedEventsBatch = new ReceivedEventsBatch(streamId, batch);
             await _eventDispatcher.DispatchAsync(subscriptionName, receivedEventsBatch, cancellationToken);
         }
     }

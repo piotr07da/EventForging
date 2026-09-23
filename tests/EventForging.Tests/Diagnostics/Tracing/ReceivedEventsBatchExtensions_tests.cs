@@ -37,7 +37,7 @@ public class ReceivedEventsBatchExtensions_tests
         AddNewEventWithStoringOfCurrentActivityId(receivedEvents);
         activity?.Complete();
 
-        var batch = new ReceivedEventsBatch(receivedEvents);
+        var batch = new ReceivedEventsBatch(StreamId, receivedEvents);
 
         // Act
         await batch.IterateWithTracingRestoreAsync(NameSuffixForIterationActivities, e => Task.CompletedTask);
@@ -61,7 +61,7 @@ public class ReceivedEventsBatchExtensions_tests
             activity?.Complete();
         }
 
-        var batch = new ReceivedEventsBatch(receivedEvents);
+        var batch = new ReceivedEventsBatch(StreamId, receivedEvents);
 
         // Act
         await batch.IterateWithTracingRestoreAsync(NameSuffixForIterationActivities, e => Task.CompletedTask);
@@ -81,7 +81,7 @@ public class ReceivedEventsBatchExtensions_tests
         AddNewEventWithStoringOfCurrentActivityId(receivedEvents);
         activity?.Complete();
 
-        var batch = new ReceivedEventsBatch(receivedEvents);
+        var batch = new ReceivedEventsBatch(StreamId, receivedEvents);
 
         // Act
         try
@@ -108,7 +108,7 @@ public class ReceivedEventsBatchExtensions_tests
 
         receivedEvents.Add(new ReceivedEvent(new { }, new EventInfo(StreamId, Guid.NewGuid(), 1, EventType, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, new Dictionary<string, string>())));
 
-        var batch = new ReceivedEventsBatch(receivedEvents);
+        var batch = new ReceivedEventsBatch(StreamId, receivedEvents);
 
         // Act
         await batch.IterateWithTracingRestoreAsync(NameSuffixForIterationActivities, e => Task.CompletedTask);
