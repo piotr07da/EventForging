@@ -26,6 +26,23 @@ internal static class TracingExtensions
         return activity.EnrichWithTagIfNotNull(TracingActivityNames.RepositoryGet, TracingAttributeNames.AggregateVersion, aggregateVersion.ToString());
     }
 
+    internal static Activity? EnrichRepositoryGetActivityWithEventsServed(this Activity? activity, long? eventsServedFromCache, long eventsServedFromDatabase)
+    {
+        if (activity is null)
+        {
+            return null;
+        }
+
+        activity.AssertName(TracingActivityNames.RepositoryGet);
+        if (eventsServedFromCache.HasValue)
+        {
+            activity.SetTag(TracingAttributeNames.EventStreamReadEventsServedFromCache, eventsServedFromCache.Value);
+        }
+
+        activity.SetTag(TracingAttributeNames.EventStreamReadEventsServedFromDatabase, eventsServedFromDatabase);
+        return activity;
+    }
+
     internal static Activity? StartRepositorySaveActivity<TAggregate>(this ActivitySource activitySource, string aggregateId, TAggregate aggregate, ExpectedVersion expectedVersion, Guid conversationId, Guid initiatorId, IDictionary<string, string>? customProperties)
         where TAggregate : class, IEventForged
     {

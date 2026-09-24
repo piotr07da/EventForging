@@ -174,6 +174,9 @@ internal sealed class Repository<TAggregate> : IRepository<TAggregate>
         }
 
         var rehydratedAggregate = CompleteAggregateRehydration(aggregate, retrievedVersion, activity);
+        activity.EnrichRepositoryGetActivityWithEventsServed(
+            eventStreamCacheReadSession is null ? null : cachedEventCount,
+            databaseEventCount);
         EventStreamReadMetrics.RecordEventsServedFromCache(typeof(TAggregate), cachedEventCount);
         EventStreamReadMetrics.RecordEventsServedFromDatabase(typeof(TAggregate), databaseEventCount);
         return rehydratedAggregate;

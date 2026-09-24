@@ -1,5 +1,7 @@
 // ReSharper disable InconsistentNaming
 
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
@@ -7,6 +9,7 @@ using EventForging.Caching;
 using EventForging.Diagnostics;
 using EventForging.Caching.Memory;
 using EventForging.Caching.Memory.Diagnostics;
+using EventForging.Diagnostics.Tracing;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -324,6 +327,46 @@ public class EventStreamCache_tests
         Assert.Equal(1L, SumMeasurements(measurements, "eventforging.event_stream_cache.cached_events"));
         Assert.Equal(1L, SumMeasurements(measurements, "eventforging.event_stream_cache.entry_removal", "ef.cache.entry_removal.reason", "event_count_limit"));
         Assert.All(measurements, m => Assert.Equal(nameof(BreweryAggregate), m.Tags["ef.aggregate.type"]));
+    }
+
+    [Fact]
+    public async Task repository_get_activity_reports_events_served_from_database_and_cache()
+    {
+        var activities = new ConcurrentQueue<Activity>();
+        using var activityListener = new ActivityListener
+        {
+            ActivityStopped = activities.Enqueue,
+            ShouldListenTo = source => source.Name == EventForgingDiagnosticsInfo.TracingSourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(activityListener);
+
+        var (repository, database, _) = CreateRepository(c => c.MinimumEventCount = 1);
+        var aggregateId = Guid.NewGuid().ToString();
+        database.Add(
+            aggregateId,
+            new NumberBeerBrewedEvent(1),
+            new NumberBeerBrewedEvent(2));
+
+        await repository.GetAsync(aggregateId);
+        await repository.GetAsync(aggregateId);
+
+        var repositoryGetActivities = activities
+            .Where(a => a.OperationName == TracingActivityNames.RepositoryGet
+                        && Equals(a.GetTagItem(TracingAttributeNames.AggregateId), aggregateId))
+            .ToArray();
+        Assert.Collection(
+            repositoryGetActivities,
+            databaseReadActivity =>
+            {
+                Assert.Null(databaseReadActivity.GetTagItem(TracingAttributeNames.EventStreamReadEventsServedFromCache));
+                Assert.Equal(2L, databaseReadActivity.GetTagItem(TracingAttributeNames.EventStreamReadEventsServedFromDatabase));
+            },
+            cacheReadActivity =>
+            {
+                Assert.Equal(2L, cacheReadActivity.GetTagItem(TracingAttributeNames.EventStreamReadEventsServedFromCache));
+                Assert.Equal(0L, cacheReadActivity.GetTagItem(TracingAttributeNames.EventStreamReadEventsServedFromDatabase));
+            });
     }
 
     [Fact]

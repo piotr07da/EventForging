@@ -20,6 +20,8 @@ public static class TracingAttributeNames
     public const string CustomPropertyPrefix = "custom_property.";
     public const string SubscriptionName = "subscription_name";
     public const string SaveInterceptionPipeline = "save_interception_pipeline";
+    public const string EventStreamReadEventsServedFromCache = "event_stream.read.events_served.from_cache";
+    public const string EventStreamReadEventsServedFromDatabase = "event_stream.read.events_served.from_database";
 
     public static class ExceptionEvent
     {
